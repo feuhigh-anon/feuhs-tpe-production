@@ -82,11 +82,11 @@ def inject_styles(theme: str) -> None:
             "gold": "#FFC72C",
             "bg": "#09130F",
             "surface": "#111E18",
-            "surface_raised": "#17271F",
+            "surface-raised": "#17271F",
             "text": "#F5F8F6",
             "muted": "#AAB8B0",
             "border": "#31443A",
-            "soft_green": "#123A29",
+            "soft-green": "#123A29",
             "shadow": "rgba(0, 0, 0, 0.32)",
         }
     else:
@@ -96,11 +96,11 @@ def inject_styles(theme: str) -> None:
             "gold": "#FFC72C",
             "bg": "#F4F7F5",
             "surface": "#FFFFFF",
-            "surface_raised": "#FFFFFF",
+            "surface-raised": "#FFFFFF",
             "text": "#142019",
             "muted": "#64706A",
             "border": "#D8E0DB",
-            "soft_green": "#E5F2EB",
+            "soft-green": "#E5F2EB",
             "shadow": "rgba(20, 32, 25, 0.10)",
         }
 
@@ -119,6 +119,8 @@ def inject_styles(theme: str) -> None:
         [data-testid="stMainBlockContainer"] {{
             max-width: 480px;
             min-height: 100vh;
+            height: max-content !important;
+            flex-shrink: 0;
             padding: 0 1rem 5.75rem;
             background: var(--surface);
             box-shadow: 0 0 28px var(--shadow);
@@ -138,11 +140,13 @@ def inject_styles(theme: str) -> None:
         }}
         .st-key-portal_header [data-testid="stHorizontalBlock"] {{ align-items: center; }}
         .st-key-portal_header [data-testid="stHorizontalBlock"],
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"],
         .st-key-bottom_nav [data-testid="stHorizontalBlock"] {{
             flex-direction: row !important;
             flex-wrap: nowrap !important;
         }}
         .st-key-portal_header [data-testid="stColumn"],
+        [data-testid="stForm"] [data-testid="stColumn"],
         .st-key-bottom_nav [data-testid="stColumn"] {{
             min-width: 0 !important;
             width: auto !important;
@@ -250,8 +254,12 @@ def inject_styles(theme: str) -> None:
         .st-key-nav_active .stButton button {{ color: var(--primary); font-weight: 800; }}
         div[data-baseweb="progress-bar"] > div > div {{ background-color: var(--border) !important; }}
         div[data-baseweb="progress-bar"] > div > div > div {{ background-color: var(--primary) !important; }}
-        button[data-testid="stBaseButton-segmented_controlActive"],
-        button[data-testid="stBaseButton-segmented_controlActive"] p {{
+        [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"],
+        [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
+        [data-testid="stButtonGroup"] button[aria-pressed="true"],
+        [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] p,
+        [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] p,
+        [data-testid="stButtonGroup"] button[aria-pressed="true"] p {{
             background: var(--gold) !important; color: #142019 !important; border-color: var(--gold) !important;
         }}
         [data-testid="stButtonGroup"] button {{
