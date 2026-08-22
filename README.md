@@ -14,6 +14,8 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 
 For architecture decisions, statistical cautions, deployment status, and the
 ordered implementation backlog, see [HANDOFF_SUMMARY.md](HANDOFF_SUMMARY.md).
+For the append-only, timestamped implementation history, see
+[CHANGELOG.md](CHANGELOG.md).
 
 ## What It Does
 

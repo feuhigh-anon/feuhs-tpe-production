@@ -84,6 +84,7 @@ The fixed 50-30-20 policy was implemented as an operational default, not because
 | `student_app.py` | Primary student-facing Streamlit app: home, assigned teachers, four-step instrument, review, submission confirmation, history, help, and light/dark FEU styling. |
 | `README.md` | Existing project README, setup instructions, method summary, and partial code map. |
 | `HANDOFF_SUMMARY.md` | Authoritative cross-conversation project context, architecture decisions, statistical cautions, deployment state, and implementation sequence. |
+| `CHANGELOG.md` | Append-only, timestamped implementation history with verification and commit references. |
 | `requirements.txt` | Python dependencies for Streamlit, pandas, NumPy, SciPy, openpyxl, reportlab, and related runtime needs. |
 | `.gitignore` | Ignores virtual environments, caches, local source data, and generated artifacts. |
 | `supabase/config.toml` | Supabase CLI project configuration. It contains no database password or API secret. |
