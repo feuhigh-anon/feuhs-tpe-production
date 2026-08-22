@@ -113,8 +113,8 @@ SHS_FACULTY_ITEMS = _question_items("SHS", "TP", SHS_FACULTY_TEXTS)
 JHS_FACULTY_ITEMS = _question_items("JHS", "TP", JHS_FACULTY_TEXTS)
 SHS_SELF_ITEMS = _question_items("SHS", "SELF", SHS_SELF_TEXTS, rci_start=11)
 JHS_SELF_ITEMS = _question_items("JHS", "SELF", JHS_SELF_TEXTS, rci_start=11)
-SHS_OPEN_ITEMS = _question_items("SHS", "OPEN", SHS_OPEN_TEXTS, required=False, rci_start=999)
-JHS_OPEN_ITEMS = _question_items("JHS", "OPEN", JHS_OPEN_TEXTS, required=False, rci_start=999)
+SHS_OPEN_ITEMS = _question_items("SHS", "OPEN", SHS_OPEN_TEXTS, rci_start=999)
+JHS_OPEN_ITEMS = _question_items("JHS", "OPEN", JHS_OPEN_TEXTS, rci_start=999)
 
 DEFAULT_QUESTION_BLOCKS: Dict[str, QuestionBlock] = {
     "shs": QuestionBlock(

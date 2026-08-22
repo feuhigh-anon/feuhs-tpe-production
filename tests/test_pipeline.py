@@ -63,6 +63,8 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(len(jhs.self_eval_items), 15)
         self.assertEqual(len(shs.open_ended_items), 3)
         self.assertEqual(len(jhs.open_ended_items), 3)
+        self.assertTrue(all(item.required for item in shs.open_ended_items))
+        self.assertTrue(all(item.required for item in jhs.open_ended_items))
         self.assertEqual(len(shs.rci_items), 5)
         self.assertEqual(len(jhs.rci_items), 5)
         self.assertNotEqual(shs.faculty_items[0].id, jhs.faculty_items[0].id)

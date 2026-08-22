@@ -22,6 +22,8 @@ The project is no longer planning Power Apps as the primary frontend. The adopte
 
 The student section will come from the authenticated database profile. Students will never select their section or teacher freely; they will see only active roster assignments for their school level, grade, strand, section, and evaluation period.
 
+The repository now includes an initial Supabase migration with indexed foreign keys, RLS policies, explicit student-to-teaching-assignment authorization, immutable versioned question banks, a unique submission constraint, and an atomic `submit_evaluation` RPC. A second migration publishes the current SHS and JHS instruments as version 1. These migrations are source-controlled but have not yet been applied to a hosted project, and the Streamlit portal still uses synthetic in-memory data.
+
 ## 2. Requirements Established in the Conversation
 
 ### Evaluation structure
@@ -599,8 +601,7 @@ Use a composite unique constraint such as `(student_id, assignment_id, evaluatio
 - `evaluation_periods`: opening/closing dates and active status;
 - `question_banks` and `question_items`: versioned SHS/JHS instruments;
 - `evaluation_submissions`: one row per authorized student assignment and period;
-- `evaluation_response_items`: Likert responses by question item;
-- `evaluation_comments`: open-ended responses by prompt;
+- `evaluation_responses`: version-bound Likert or text responses by question item, with `N/A` retained but marked non-substantive;
 - `submission_audit_events`: accepted/rejected submission events without passwords or response text in logs.
 
 Foreign-key columns and common RLS predicates need indexes. Policies should use the authenticated user ID and indexed ownership/assignment columns. Elevated Supabase secret/service-role credentials must remain server-side and should not be used for ordinary student requests because they bypass RLS.
@@ -612,8 +613,8 @@ Foreign-key columns and common RLS predicates need indexes. Policies should use 
 1. Commit this sanitation/documentation update and push `main` to the public GitHub repository.
 2. Deploy `student_app.py` from `ronmarccharlesms/new_eval`, branch `main`, on Streamlit Community Cloud.
 3. Treat that deployment as a fictional UI preview only until authentication and persistence are complete.
-4. Create the Supabase project and migrations for profiles, rosters, assignments, periods, versioned questions, submissions, responses, comments, and audit events.
-5. Add indexes, foreign keys, unique submission constraints, RLS policies, and policy tests before connecting real accounts.
+4. Create the hosted Supabase project and apply the source-controlled migrations for profiles, rosters, assignments, periods, versioned questions, submissions, responses, and audit events.
+5. Run cross-section, duplicate-submission, raw-response-read, and administrator-access policy tests before connecting real accounts.
 6. Build the custom login/logout/password-reset UI and use per-session Supabase Auth tokens.
 7. Add an administrator-only provisioning/import script for synthetic alpha accounts first, followed by approved roster data.
 8. Replace in-memory submission logic with an atomic database submission path and test duplicate concurrent requests.

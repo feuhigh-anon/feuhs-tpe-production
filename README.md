@@ -7,7 +7,7 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 - `student_app.py` is a public-safe fictional preview with FEU green/yellow styling, light/dark modes, roster-filtered assignments, a four-step evaluation instrument, review, submission confirmation, and history.
 - `app.py` is an internal analysis prototype for local SharePoint/MS Forms exports.
 - All source-controlled identities are synthetic. Raw exports, rosters, credentials, and production responses are excluded from Git.
-- Authentication and persistence are not implemented yet. The production plan is a custom Streamlit login backed by Supabase Auth and PostgreSQL Row Level Security.
+- The versioned Supabase schema, RLS policies, and atomic submission migration are now source-controlled, but the hosted project, Streamlit connection, and login flow are not yet configured.
 - Do not use the current deployment for real students or real evaluation responses.
 
 For architecture decisions, statistical cautions, deployment status, and the
@@ -50,7 +50,9 @@ The student preview uses unmistakably synthetic profiles, `example.invalid`
 email addresses, and demo section identifiers. The student's section is supplied
 by the data layer, and the interface does not offer a section picker. Supabase
 Auth, PostgreSQL persistence, RLS policies, database uniqueness constraints, and
-audit events are the next integration layer.
+audit events are the next integration layer. See
+[docs/supabase_setup.md](docs/supabase_setup.md) for the current migration and
+hosted-project procedure.
 
 The app has separate SHS and JHS tabs. Use the demo-data toggle to inspect the full pipeline before uploading a real SharePoint export.
 
@@ -79,7 +81,9 @@ Streamlit session state are not security controls.
 
 ## Question Blocks
 
-The exact question text lives in `feval/questions.py`.
+The current in-code question text lives in `feval/questions.py`. The database
+copy is stored as immutable, versioned `question_banks` and `question_items` so
+future wording or item changes do not alter historical submissions.
 
 Each level has four parts:
 
@@ -111,6 +115,13 @@ feval/
 tests/
   test_pipeline.py
   test_student_portal.py
+  test_supabase_schema.py
+supabase/
+  migrations/
+    202608230001_initial_schema.sql
+    202608230002_question_banks_v1.sql
+docs/
+  supabase_setup.md
 ```
 
 ### Runtime Data Flow
