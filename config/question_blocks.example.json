@@ -1,0 +1,19 @@
+{
+  "note": "The exact SHS and JHS question text is configured in feval/questions.py. Keep SHS and JHS teacher-performance items separate.",
+  "blocks": {
+    "shs": {
+      "label": "Senior High School",
+      "faculty_item_count": 10,
+      "self_eval_item_count": 15,
+      "rci_item_count": 5,
+      "open_ended_item_count": 3
+    },
+    "jhs": {
+      "label": "Junior High School",
+      "faculty_item_count": 10,
+      "self_eval_item_count": 15,
+      "rci_item_count": 5,
+      "open_ended_item_count": 3
+    }
+  }
+}
