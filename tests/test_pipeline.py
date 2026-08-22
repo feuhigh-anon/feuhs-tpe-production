@@ -9,6 +9,7 @@ from feval.reporting import build_analysis_report
 from feval.sample_data import make_demo_sharepoint_export
 from feval.text import (
     flag_verbose_responses,
+    is_substantive_comment,
     phrase_summary_for_prompt,
     qualitative_evidence_index,
     representative_evidence,
@@ -184,6 +185,12 @@ class PipelineTest(unittest.TestCase):
         ]
         result = representative_evidence(comments, frames=["teaching strategies"])
         self.assertTrue("confusing" in result or "rushed" in result)
+
+    def test_not_applicable_responses_are_not_qualitative_evidence(self):
+        self.assertFalse(is_substantive_comment("N/A"))
+        self.assertFalse(is_substantive_comment("Not applicable"))
+        self.assertFalse(is_substantive_comment("   "))
+        self.assertTrue(is_substantive_comment("The worked examples were helpful."))
 
 
 if __name__ == "__main__":

@@ -212,6 +212,25 @@ def inject_styles(theme: str) -> None:
         .review-row {{ padding: .55rem 0; border-bottom: 1px solid var(--border); }}
         .review-question {{ color: var(--muted); font-size: .78rem; line-height: 1.35; }}
         .review-answer {{ color: var(--text); font-size: .9rem; font-weight: 700; margin-top: .16rem; }}
+        [data-testid="stExpander"] details {{
+            overflow: hidden;
+            border: 1px solid var(--border) !important;
+            border-radius: 6px;
+            background: var(--surface) !important;
+        }}
+        [data-testid="stExpander"] summary {{
+            background: var(--surface) !important;
+            color: var(--text) !important;
+        }}
+        [data-testid="stExpander"] details[open] > summary,
+        [data-testid="stExpander"] summary:hover {{ background: var(--soft-green) !important; }}
+        [data-testid="stExpander"] summary p,
+        [data-testid="stExpander"] summary span {{ color: var(--text) !important; }}
+        [data-testid="stExpanderDetails"] {{
+            background: var(--surface) !important;
+            color: var(--text) !important;
+            border-top: 1px solid var(--border) !important;
+        }}
         .stButton button, .stFormSubmitButton button {{
             min-height: 2.85rem;
             border-radius: 6px;
@@ -487,6 +506,10 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
                     unsafe_allow_html=True,
                 )
         else:
+            st.caption(
+                "All three qualitative responses are required. Enter N/A or Not applicable "
+                "when you have no additional feedback."
+            )
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
                 st.text_area(
@@ -495,7 +518,7 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
                     key=widget_key,
                     height=110,
                     max_chars=1000,
-                    placeholder="Enter your comments here...",
+                    placeholder="Enter feedback or N/A...",
                 )
 
         back_col, next_col = st.columns(2)
@@ -533,9 +556,21 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
                 st.error(f"Please answer all {len(items)} statements before continuing.")
                 return
         else:
+            comment_values = {}
+            missing = []
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
-                st.session_state.comments[widget_key] = st.session_state.get(widget_key, "").strip()
+                value = st.session_state.get(widget_key, "").strip()
+                comment_values[widget_key] = value
+                if not value:
+                    missing.append(item.text)
+            if missing:
+                st.error(
+                    f"Please complete all {len(items)} qualitative responses before reviewing. "
+                    "Enter N/A or Not applicable when you have no additional feedback."
+                )
+                return
+            st.session_state.comments.update(comment_values)
 
         if section_index == len(sections) - 1:
             navigate("review")

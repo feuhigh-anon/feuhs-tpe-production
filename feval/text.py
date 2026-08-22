@@ -734,6 +734,13 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", str(text).lower()).strip()
 
 
+def is_substantive_comment(value: object) -> bool:
+    """Return whether a required qualitative response contains actual feedback."""
+
+    normalized = re.sub(r"[^a-z0-9]+", " ", str(value).lower()).strip()
+    return bool(normalized) and normalized not in {"n a", "na", "not applicable"}
+
+
 def tokenize(text: str) -> list[str]:
     return re.findall(r"[a-zA-Z][a-zA-Z'-]*", str(text).lower())
 
@@ -741,7 +748,11 @@ def tokenize(text: str) -> list[str]:
 def _collect_comments(group: pd.DataFrame, column: Optional[str]) -> list[str]:
     if not column or column not in group.columns:
         return []
-    return [str(value).strip() for value in group[column].dropna() if str(value).strip()]
+    return [
+        str(value).strip()
+        for value in group[column].dropna()
+        if is_substantive_comment(value)
+    ]
 
 
 def _cue_matches(cue: str, normalized_text: str, tokens: set[str]) -> bool:
