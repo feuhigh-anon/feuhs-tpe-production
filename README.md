@@ -4,10 +4,12 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 
 ## Current Status
 
-- `student_app.py` is a public-safe fictional preview with FEU green/yellow styling, light/dark modes, roster-filtered assignments, a four-step evaluation instrument, review, submission confirmation, and history.
+- `student_app.py` is deployed as a public-safe fictional preview at [feuhighschool-teacher-performance-evaluation.streamlit.app](https://feuhighschool-teacher-performance-evaluation.streamlit.app/), with FEU green/yellow styling, light/dark modes, roster-filtered assignments, a four-step evaluation instrument, review, submission confirmation, and history.
 - `app.py` is an internal analysis prototype for local SharePoint/MS Forms exports.
 - All source-controlled identities are synthetic. Raw exports, rosters, credentials, and production responses are excluded from Git.
-- The versioned Supabase schema, RLS policies, and atomic submission migration are now source-controlled, but the hosted project, Streamlit connection, and login flow are not yet configured.
+- The hosted Supabase project is created and linked through Supabase CLI. Both source-controlled migrations have been applied, creating 14 tables, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC.
+- The published SHS and JHS version-1 instruments contain 28 required items each: 25 Likert items and 3 qualitative prompts. The hosted database therefore starts with 2 question banks and 56 question items.
+- Streamlit is not yet connected to Supabase Auth or PostgreSQL. The deployed portal still uses synthetic in-memory data and is not approved for real evaluations.
 - Do not use the current deployment for real students or real evaluation responses.
 
 For architecture decisions, statistical cautions, deployment status, and the
@@ -49,8 +51,9 @@ streamlit run app.py
 The student preview uses unmistakably synthetic profiles, `example.invalid`
 email addresses, and demo section identifiers. The student's section is supplied
 by the data layer, and the interface does not offer a section picker. Supabase
-Auth, PostgreSQL persistence, RLS policies, database uniqueness constraints, and
-audit events are the next integration layer. See
+Auth and PostgreSQL persistence are the next application integration layer; the
+database-side RLS policies, uniqueness constraint, versioned questions, and
+audit-event structures are already deployed. See
 [docs/supabase_setup.md](docs/supabase_setup.md) for the current migration and
 hosted-project procedure.
 
@@ -69,6 +72,22 @@ Main file path: student_app.py
 No deployment secrets are required for the fictional preview. Future Supabase
 credentials must be configured through Streamlit Community Cloud Secrets and
 must never be committed.
+
+## Supabase Database
+
+The hosted project was initialized and linked from this repository using
+Supabase CLI `2.115.0`. Database changes are tracked under
+`supabase/migrations/` and must be previewed before deployment:
+
+```bash
+supabase migration list
+supabase db push --dry-run
+supabase db push
+```
+
+Do not make production schema changes directly in the Table Editor. Add a new
+timestamped migration, review it, commit it, and deploy it through the CLI.
+Local CLI state under `supabase/.temp/` is ignored by Git.
 
 ## Security Boundary
 
@@ -117,6 +136,7 @@ tests/
   test_student_portal.py
   test_supabase_schema.py
 supabase/
+  config.toml
   migrations/
     202608230001_initial_schema.sql
     202608230002_question_banks_v1.sql
@@ -159,14 +179,17 @@ flowchart LR
 | `feval/__init__.py` | Small public package surface. | Package imports. | Exposes `DEFAULT_QUESTION_BLOCKS` and `get_question_block`. |
 | `tests/test_pipeline.py` | End-to-end and behavior tests. | Demo/generated data. | Assertions for ingestion, block structure, scoring output, NLP fields, and class-load pooling. |
 | `tests/test_student_portal.py` | Portal authorization tests. | Synthetic student and assignment records. | Assertions for section scoping, submitted filtering, and stable keys. |
+| `tests/test_supabase_schema.py` | Static database-contract tests. | Source-controlled SQL migrations and Python question banks. | Assertions for RLS/revokes, versioning, duplicate prevention, RPC grants, and seeded-question parity. |
 
 ### `student_app.py`
 
 `student_app.py` is the primary user experience. It renders Home, My Teachers,
 Evaluation, Review, Submitted, My Evaluations, and Help views. The evaluation is
 split into four sections and uses the complete SHS question bank. Current
-submissions live only in per-session memory; production authentication and
-database writes are intentionally not simulated as security.
+submissions live only in per-session memory. Production authentication and
+database writes are intentionally not simulated in the public preview; the next
+implementation step is to replace the synthetic data adapter with per-session
+Supabase Auth and RLS-governed database calls.
 
 ### `app.py`
 

@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 .streamlit/
+supabase/.temp/
 
 # Local evaluation source data and generated exports
 Students Evaluation/
