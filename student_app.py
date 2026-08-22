@@ -133,6 +133,10 @@ def inject_styles(theme: str) -> None:
             position: sticky;
             top: 0;
             z-index: 50;
+            width: calc(100% + 2rem) !important;
+            min-width: calc(100% + 2rem);
+            max-width: none !important;
+            flex: 0 0 calc(100% + 2rem) !important;
             margin: 0 -1rem 1rem;
             padding: .72rem .8rem;
             background: var(--deep);
@@ -257,12 +261,17 @@ def inject_styles(theme: str) -> None:
         [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"],
         [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
         [data-testid="stButtonGroup"] button[aria-pressed="true"],
+        [role="radiogroup"] button[data-variant="segmented_control"][aria-checked="true"],
+        [role="radiogroup"] button[data-variant="segmented_control"][data-selected="true"],
         [data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"] p,
         [data-testid="stButtonGroup"] button[kind="segmented_controlActive"] p,
-        [data-testid="stButtonGroup"] button[aria-pressed="true"] p {{
+        [data-testid="stButtonGroup"] button[aria-pressed="true"] p,
+        [role="radiogroup"] button[data-variant="segmented_control"][aria-checked="true"] p,
+        [role="radiogroup"] button[data-variant="segmented_control"][data-selected="true"] p {{
             background: var(--gold) !important; color: #142019 !important; border-color: var(--gold) !important;
         }}
-        [data-testid="stButtonGroup"] button {{
+        [data-testid="stButtonGroup"] button,
+        [role="radiogroup"] button[data-variant="segmented_control"] {{
             min-height: 2.35rem; color: var(--text); background: var(--surface); border-color: var(--border);
         }}
         textarea, input {{ color: var(--text) !important; background: var(--surface) !important; }}
