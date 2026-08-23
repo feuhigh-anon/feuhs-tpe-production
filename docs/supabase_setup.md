@@ -2,15 +2,20 @@
 
 ## Current State
 
-The repository contains two ordered migrations:
+The repository contains three ordered migrations:
 
 1. `202608230001_initial_schema.sql` creates the relational model, indexes,
    Row Level Security policies, immutable-questionnaire guards, and atomic
    `submit_evaluation` database function.
 2. `202608230002_question_banks_v1.sql` installs and publishes the current SHS
    and JHS version 1 questionnaires.
+3. `202608240001_roster_import_staging.sql` adds private batch-based roster
+   staging tables, database validation issues, import provenance, and a
+   service-role-only activation transaction.
 
-Both migrations were applied to the hosted project on 2026-08-23. They contain
+The first two migrations were applied to the hosted project on 2026-08-23. The
+third migration is source-controlled and locally tested but must still be
+reviewed with `supabase db push --dry-run` and explicitly deployed. They contain
 no real student roster, password, credential, or evaluation response. The
 Streamlit authentication/data adapter, synthetic alpha provisioner, and
 alpha-only live security verifier are implemented. The hosted login and normal
@@ -57,6 +62,41 @@ only into the CLI prompt. Do not add it to shell history or source files.
 Avoid making table changes directly in the Dashboard Table Editor after adopting
 migrations. Supabase documents that direct remote changes can put migration
 history out of sync with `db push`.
+
+## Prepare A Roster Import Batch
+
+Do not upload the current review workbook directly. First run the offline
+validator described in the README. It checks required sheets and columns,
+duplicate identities and assignments, section consistency, referential
+integrity, unresolved workbook QC, and shared-class student mappings.
+
+The output contains private identifiable data and must remain under ignored
+`exports/`. Each staging CSV carries a `batch_code`; the eventual elevated
+loader creates `roster_import_batches`, resolves its numeric `batch_id`, and
+loads the normalized rows into the corresponding `roster_stage_*` tables.
+
+After student Auth accounts exist, an elevated operator runs database validation:
+
+```sql
+select public.validate_roster_import_batch(BATCH_ID);
+```
+
+Validation records errors, warnings, and informational shared-class findings in
+`roster_import_issues`. Activation is permitted only when there are no errors,
+the evaluation period is still `draft`, and no submissions exist for that
+period:
+
+```sql
+select public.activate_roster_import_batch(BATCH_ID);
+```
+
+Only `service_role` may execute these functions. Never place that key in
+Streamlit, GitHub, the workbook, a command argument, or browser-side code.
+Activation runs in one transaction, upserts the approved reference/roster data,
+deactivates superseded period assignments, records batch provenance, and marks
+the previous activated batch as superseded. Legitimate shared classes remain
+distinct teacher assignments; the student-assignment rows determine which
+teacher or teachers each student evaluates.
 
 ## Configure Authentication for Alpha Testing
 

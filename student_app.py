@@ -1,4 +1,4 @@
-"""Student-facing Streamlit prototype for faculty evaluations."""
+"""Student-facing Streamlit prototype for teacher performance evaluations."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ from feval.supabase_portal import (
 
 
 st.set_page_config(
-    page_title="FEU High School Faculty Evaluation",
+    page_title="FEU High School Teacher Performance Evaluation",
     page_icon=":material/rate_review:",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -209,17 +209,32 @@ def inject_styles(theme: str) -> None:
         :root {{{css_vars};}}
         html, body, [class*="css"] {{ font-family: Inter, "Segoe UI", Arial, sans-serif; }}
         .stApp, [data-testid="stAppViewContainer"] {{
+            width: 100vw !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
             background: var(--bg);
             color: var(--text);
+        }}
+        [data-testid="stAppViewContainer"] > .main,
+        [data-testid="stMain"], .stMain {{
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
         }}
         header[data-testid="stHeader"], [data-testid="stToolbar"],
         [data-testid="stDecoration"], #MainMenu, footer {{ display: none !important; }}
         [data-testid="stMainBlockContainer"] {{
+            width: min(480px, 100vw) !important;
             max-width: 480px;
+            min-width: 0 !important;
             min-height: 100vh;
             height: max-content !important;
             flex-shrink: 0;
+            box-sizing: border-box;
             padding: 0 1rem 5.75rem;
+            margin-inline: auto;
+            overflow-x: hidden;
             background: var(--surface);
             box-shadow: 0 0 28px var(--shadow);
         }}
@@ -286,19 +301,20 @@ def inject_styles(theme: str) -> None:
         }}
         .login-brand-row {{
             position: relative; z-index: 2; display: flex; align-items: center;
-            gap: 1rem; max-width: 20rem;
+            gap: 1rem; width: 100%; max-width: 20rem;
         }}
         .login-logo {{
             width: 4.6rem; height: 4.6rem; min-width: 4.6rem; object-fit: contain;
             filter: drop-shadow(0 .2rem .25rem rgba(0,0,0,.22));
         }}
-        .login-brand-copy {{ min-width: 0; }}
+        .login-brand-copy {{ flex: 1 1 0; width: 0; min-width: 0; max-width: 100%; }}
         .login-kicker {{
             display: block; color: var(--gold); font-size: .67rem; font-weight: 800;
             line-height: 1.2; margin-bottom: .4rem; letter-spacing: 0;
         }}
         .login-brand-copy strong {{
             display: block; color: #FFFFFF; font-size: 1.55rem; line-height: 1.08; font-weight: 800;
+            white-space: normal; overflow-wrap: anywhere;
         }}
         .login-brand-copy em {{
             display: block; color: rgba(255,255,255,.82); font-size: .82rem;
@@ -342,6 +358,34 @@ def inject_styles(theme: str) -> None:
         }}
         .login-assurance strong {{ display: block; color: var(--text); font-size: .76rem; }}
         .login-assurance span {{ display: block; color: var(--muted); font-size: .7rem; margin-top: .08rem; }}
+        .login-guidance {{
+            margin: 1.1rem .1rem 0; padding: 1rem 0 0; border-top: 3px solid var(--gold);
+            color: var(--text);
+        }}
+        .login-guidance h2 {{
+            margin: 0 0 .65rem; color: var(--primary); font-size: 1rem;
+            line-height: 1.25; font-weight: 800;
+        }}
+        .login-guidance p {{
+            margin: 0 0 .75rem; color: var(--muted); font-size: .78rem; line-height: 1.55;
+        }}
+        .login-guidance strong {{ color: var(--text); }}
+        .agreement-scale {{
+            display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+            margin: .65rem 0 .85rem; padding: 0; list-style: none;
+            border: 1px solid var(--border); border-radius: 5px; overflow: hidden;
+        }}
+        .agreement-scale li {{
+            min-width: 0; padding: .55rem .25rem; text-align: center;
+            border-right: 1px solid var(--border); background: var(--surface);
+            color: var(--muted); font-size: .64rem; line-height: 1.25;
+        }}
+        .agreement-scale li:last-child {{ border-right: 0; }}
+        .agreement-scale b {{ display: block; color: var(--primary); font-size: .9rem; margin-bottom: .18rem; }}
+        .privacy-note {{
+            margin-top: .85rem; padding: .75rem .8rem; border-left: 3px solid var(--gold);
+            background: var(--soft-yellow); color: var(--text); font-size: .72rem; line-height: 1.5;
+        }}
         [data-testid="stVerticalBlockBorderWrapper"] {{
             border: 1px solid var(--border) !important;
             border-radius: 6px !important;
@@ -480,7 +524,16 @@ def inject_styles(theme: str) -> None:
             .assignment-subject {{ font-size: .96rem; }}
             .subject-mark {{ width: 2.8rem; height: 2.8rem; min-width: 2.8rem; }}
             .login-hero {{ min-height: 12.8rem; padding-top: 1.85rem; }}
-            .login-brand-copy strong {{ font-size: 1.42rem; }}
+            .login-brand-row {{ gap: .7rem; }}
+            .login-logo {{ width: 3.7rem; height: 3.7rem; min-width: 3.7rem; }}
+            .login-brand-copy strong {{ font-size: 1.2rem; }}
+            .agreement-scale {{ grid-template-columns: 1fr; }}
+            .agreement-scale li {{
+                display: flex; align-items: center; gap: .55rem; text-align: left;
+                border-right: 0; border-bottom: 1px solid var(--border); padding: .48rem .65rem;
+            }}
+            .agreement-scale li:last-child {{ border-bottom: 0; }}
+            .agreement-scale b {{ display: inline; min-width: 1rem; margin: 0; }}
         }}
         </style>
         """,
@@ -507,7 +560,7 @@ def render_login(settings: SupabaseSettings) -> None:
                 <img class="login-logo" src="{logo_uri}" alt="FEU High School logo">
                 <div class="login-brand-copy">
                   <span class="login-kicker">FEU HIGH SCHOOL</span>
-                  <strong>Faculty Evaluation</strong>
+                  <strong>Teacher Performance Evaluation</strong>
                   <em>Student Portal</em>
                 </div>
               </div>
@@ -549,6 +602,28 @@ def render_login(settings: SupabaseSettings) -> None:
             """,
             unsafe_allow_html=True,
         )
+        st.markdown(
+            """
+            <section class="login-guidance" aria-labelledby="evaluation-guidance-title">
+              <h2 id="evaluation-guidance-title">Evaluation guidance</h2>
+              <p>Your feedback regarding our teachers is integral to upholding a high-quality learning environment at FEU High School. Please take a few moments to complete this evaluation thoughtfully. Your input helps the school assess teaching quality and improve the overall learning experience.</p>
+              <p>This evaluation covers teacher performance during the <strong>Second Semester of School Year 2025-2026</strong>. Base your assessment only on your experiences during this period.</p>
+              <p><strong>Part 1: Teaching Performance and Your Overall Experience</strong> and <strong>Part 2: Self-Evaluation</strong> use the following agreement scale:</p>
+              <ol class="agreement-scale" aria-label="Five-point agreement scale">
+                <li><b>1</b>Strongly Disagree</li>
+                <li><b>2</b>Disagree</li>
+                <li><b>3</b>Neutral</li>
+                <li><b>4</b>Agree</li>
+                <li><b>5</b>Strongly Agree</li>
+              </ol>
+              <p><strong>Part 3: Qualitative Feedback</strong> asks for specific comments and examples. If you have no additional feedback for a required prompt, enter <strong>N/A</strong> or <strong>Not applicable</strong>.</p>
+              <p>Complete the evaluation for every teacher assigned to you. Incomplete evaluations can reduce the accuracy and representativeness of the results. After each submission, keep only the confirmation screen or capture a screenshot of it if your Homeroom Adviser requires evidence of completion. Do not share your evaluation answers.</p>
+              <p>Thank you for contributing honest and thoughtful feedback toward a better learning environment.</p>
+              <div class="privacy-note"><strong>Privacy notice:</strong> Personal data collected through this evaluation will be processed in accordance with Republic Act No. 10173, the Data Privacy Act of 2012, and applicable school privacy policies for legitimate evaluation, administration, and educational-improvement purposes.</div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
     if submitted:
         if not email.strip() or not password:
             st.error("Enter both your email and password.")
@@ -583,7 +658,7 @@ def render_header(back_page: str | None = None) -> None:
                     navigate(back_page)
         with title:
             st.markdown(
-                '<div class="header-title">FEU High School<span>Faculty Evaluation</span></div>',
+                '<div class="header-title">FEU High School<span>Teacher Performance Evaluation</span></div>',
                 unsafe_allow_html=True,
             )
         with theme_column:
@@ -950,6 +1025,10 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
     st.markdown(
         '<div class="success-copy">Thank you. Your feedback helps us improve teaching and learning.</div>',
         unsafe_allow_html=True,
+    )
+    st.info(
+        "If your Homeroom Adviser requires evidence of completion, capture this "
+        "confirmation page only. Do not share your evaluation answers."
     )
     st.markdown('<div class="gold-rule" style="margin:1.2rem 0"></div>', unsafe_allow_html=True)
 

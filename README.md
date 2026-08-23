@@ -1,4 +1,4 @@
-# FEU High School Faculty Evaluation Platform
+# FEU High School Teacher Performance Evaluation Platform
 
 This repository contains a mobile-first Streamlit student evaluation portal and an administrator-facing faculty-evaluation aggregation prototype. The student portal is the current deployment target. The statistical backend separates Senior High School (SHS) and Junior High School (JHS) instruments, normalizes 5-point Likert responses, computes bounded response-context weights, summarizes open-ended comments with transparent semantic rules, and produces an auditable teacher-level result.
 
@@ -7,9 +7,10 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 - `student_app.py` is deployed as a public-safe fictional preview at [feuhighschool-teacher-performance-evaluation.streamlit.app](https://feuhighschool-teacher-performance-evaluation.streamlit.app/), with FEU green/yellow styling, light/dark modes, roster-filtered assignments, a four-step evaluation instrument, review, submission confirmation, and history.
 - `app.py` is an internal analysis prototype for local SharePoint/MS Forms exports.
 - All source-controlled identities are synthetic. Raw exports, rosters, credentials, and production responses are excluded from Git.
-- The hosted Supabase project is created and linked through Supabase CLI. Both source-controlled migrations have been applied, creating 14 tables, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC.
+- The hosted Supabase project is created and linked through Supabase CLI. The first two source-controlled migrations are applied, creating 14 tables, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC. A third reviewed migration adds private batch-based roster staging and is pending CLI deployment.
 - The published SHS and JHS version-1 instruments contain 28 required items each: 25 Likert items and 3 qualitative prompts. The hosted database therefore starts with 2 question banks and 56 question items.
 - The public deployment is connected with the Supabase project URL and publishable key. Its FEU-branded login, authenticated roster loading, evaluation submission, duplicate filtering, logout, and mobile workflow have passed manual testing with two synthetic students.
+- The login identifies the service as the Teacher Performance Evaluation, explains the second-semester 2025-2026 scope and response scale, requires qualitative responses, and includes a concise Republic Act No. 10173 privacy notice. Confirm the displayed semester before production because the current administrative schedule source is for SY 2026-2027.
 - Automated hosted RLS and submission-policy verification passed all 26 checks separately for SHS and JHS on 2026-08-23, including cleanup. Sanitized records are in `docs/live_security_verification_20260823.md` and `docs/live_security_verification_jhs_20260823.md`.
 - Do not use the current deployment for real students or real evaluation responses.
 
@@ -92,6 +93,22 @@ supabase db push
 Do not make production schema changes directly in the Table Editor. Add a new
 timestamped migration, review it, commit it, and deploy it through the CLI.
 Local CLI state under `supabase/.temp/` is ignored by Git.
+
+The roster workflow is deliberately separate from the student application.
+Validate a private review workbook locally before any hosted upload:
+
+```bash
+.venv/bin/python scripts/prepare_roster_import.py \
+  outputs/faculty_evaluation_roster_20260823/FEU_HS_Faculty_Evaluation_Roster_Review.xlsx \
+  --batch-code SY2026-S1-PILOT-01 \
+  --evaluation-period-code PILOT-2026-01 \
+  --output-dir exports/roster_import_SY2026_S1
+```
+
+The command makes no network request. It writes private staging CSVs only when
+there are no validation errors; otherwise it writes an owner-only validation
+report under ignored `exports/`. Shared section-subject classes remain separate
+teacher assignments and are reported for review rather than collapsed.
 
 ## Security Boundary
 
@@ -194,6 +211,7 @@ flowchart LR
 | `feval/supabase_portal.py` | Authenticated student data adapter. | Project URL, publishable key, student session, and RLS-filtered tables. | Refreshed session, database questionnaire, roster snapshot, and RPC submission. |
 | `scripts/provision_alpha.py` | Administrator-only SHS/JHS synthetic alpha provisioner. | School level, project URL, and a secret key entered at a hidden terminal prompt. | Level-specific fictional accounts/roster and an ignored owner-only credentials CSV. |
 | `scripts/verify_live_security.py` | Destructive-but-reversible hosted security verifier restricted to the selected SHS or JHS synthetic fixture. | School level, project URL, owner-only alpha credentials, and hidden publishable/secret key prompts. | Pass/fail evidence for anonymous access, identity/roster isolation, RLS, submission rules, logout, and elevated-operator visibility; temporary rows are removed. |
+| `scripts/prepare_roster_import.py` | Offline private-workbook validator and staging-bundle preparer. | Reviewed roster workbook, batch code, and evaluation-period code. | Owner-only validation report and, only after a clean pass, normalized staging CSVs under ignored `exports/`. |
 | `feval/__init__.py` | Small public package surface. | Package imports. | Exposes `DEFAULT_QUESTION_BLOCKS` and `get_question_block`. |
 | `tests/test_pipeline.py` | End-to-end and behavior tests. | Demo/generated data. | Assertions for ingestion, block structure, scoring output, NLP fields, and class-load pooling. |
 | `tests/test_student_portal.py` | Portal authorization tests. | Synthetic student and assignment records. | Assertions for section scoping, submitted filtering, and stable keys. |

@@ -1,7 +1,7 @@
 # Implementation Change Log
 
 This file is the durable, append-only record of implemented changes for the
-FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
+FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (UTC+08:00).
 
 ## Maintenance Rule
 
@@ -12,6 +12,48 @@ FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
   superseding entry so the implementation history remains visible.
 - Do not include passwords, API keys, student rosters, response data, or other
   private information.
+
+## 2026-08-24
+
+### 07:53:53 - Reconciled administrative schedules and revised login guidance
+
+- Reviewed the private 17-sheet SY 2026-2027 teacher-schedule workbook and
+  classified current department schedules, older/hidden versions, room/adviser
+  references, daily substitutions, and dated temporary schedules.
+- Confirmed that the administrative daily-substitution schedule accounts for
+  all 15 unresolved UCSP sections. No mappings were imported because recurring
+  shared substitutes require explicit assignment-mode and exposure policy.
+- Kept two Business 1 assignments unresolved and three JHS Science assignments
+  blocked on a named new-teacher identity rather than inferring personnel.
+- Renamed the student-facing service to **Teacher Performance Evaluation** and
+  added login guidance for scope, the 1-5 agreement scale, required qualitative
+  feedback, privacy-preserving completion evidence, and Republic Act No. 10173.
+- Added responsive width protections for the login container and a regression
+  test for branding, period, privacy, and response-confidentiality wording.
+- The displayed Second Semester SY 2025-2026 scope must be confirmed before
+  production because the administrative schedule reviewed here is SY 2026-2027.
+- Verification: 43 unit tests and Python compilation passed; no private roster
+  or schedule content was added to Git or uploaded to Supabase.
+- Commit: pending.
+
+### 07:19:01 - Added fail-closed roster staging and validation
+
+- Removed the unused `pathway` column from the private roster workbook's
+  Sections sheet while preserving the source data outside Git.
+- Added `202608240001_roster_import_staging.sql` with private import batches,
+  normalized staging tables, validation issues, assignment provenance, and
+  service-role-only transactional validation and activation functions.
+- Preserved shared section-subject teachers as distinct assignments and added
+  explicit review findings when one student is mapped to multiple teachers for
+  the same subject.
+- Added `scripts/prepare_roster_import.py`, which performs offline workbook
+  validation and writes owner-only staging CSVs only after a clean result.
+- The current private workbook was correctly rejected: 672 open QC rows plus a
+  duplicate section code, one incomplete student identity, and one duplicate
+  teaching-assignment tuple remain. No real roster was uploaded.
+- Added nine focused roster-import tests and updated the README, setup guide,
+  and handoff summary. Hosted migration deployment remains pending.
+- Commit: pending.
 
 ## 2026-08-23
 

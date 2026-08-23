@@ -1,5 +1,6 @@
 import unittest
 from dataclasses import replace
+from pathlib import Path
 
 from feval.student_demo_data import DEMO_ASSIGNMENTS, DEMO_STUDENT, DEMO_SUBMISSIONS
 from feval.student_portal import (
@@ -49,6 +50,17 @@ class StudentPortalTest(unittest.TestCase):
             evaluation_key(DEMO_STUDENT, assignment),
             f"{DEMO_STUDENT.id}:{assignment.id}:{DEMO_STUDENT.evaluation_period}".lower(),
         )
+
+    def test_student_interface_uses_teacher_performance_brand_and_guidance(self):
+        source = (
+            Path(__file__).resolve().parents[1] / "student_app.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("Faculty Evaluation", source)
+        self.assertIn("Teacher Performance Evaluation", source)
+        self.assertIn("Data Privacy Act of 2012", source)
+        self.assertIn("Second Semester of School Year 2025-2026", source)
+        self.assertIn("Do not share your evaluation answers", source)
 
 
 if __name__ == "__main__":

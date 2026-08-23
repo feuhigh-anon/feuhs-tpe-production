@@ -1,4 +1,4 @@
-# Faculty Evaluation Platform: Master Handoff Summary
+# Teacher Performance Evaluation Platform: Master Handoff Summary
 
 This is the authoritative implementation handoff for the `new_eval` repository. It consolidates the backend measurement plan with the current Streamlit student portal, deployment decisions, security boundary, technical file map, known limitations, and next implementation sequence. Future conversations should inspect the repository and this document before changing either the student workflow or the scoring pipeline.
 
@@ -22,7 +22,21 @@ The project is no longer planning Power Apps as the primary frontend. The adopte
 
 The student section will come from the authenticated database profile. Students will never select their section or teacher freely; they will see only active roster assignments for their school level, grade, strand, section, and evaluation period.
 
-The repository now includes an initial Supabase migration with indexed foreign keys, RLS policies, explicit student-to-teaching-assignment authorization, immutable versioned question banks, a unique submission constraint, and an atomic `submit_evaluation` RPC. A second migration publishes the current SHS and JHS instruments as version 1. On 2026-08-23, both migrations were applied successfully to the linked hosted Supabase project through CLI `2.115.0`; the Table Editor shows all 14 expected tables. The public Streamlit deployment is connected using only the project URL and publishable key. Two synthetic accounts have passed the manual authenticated workflow; automated hosted policy verification is the next gate.
+The repository now includes an initial Supabase migration with indexed foreign keys, RLS policies, explicit student-to-teaching-assignment authorization, immutable versioned question banks, a unique submission constraint, and an atomic `submit_evaluation` RPC. A second migration publishes the current SHS and JHS instruments as version 1. On 2026-08-23, both migrations were applied successfully to the linked hosted Supabase project through CLI `2.115.0`; the Table Editor shows all 14 expected tables. The public Streamlit deployment is connected using only the project URL and publishable key. Synthetic SHS and JHS cohorts passed the manual workflow and separate 26-of-26 hosted security verification runs.
+
+A third migration, `202608240001_roster_import_staging.sql`, is now prepared but not yet deployed. It introduces private roster batches, normalized staging tables, database-generated validation issues, import provenance on active assignments, and service-role-only validation/activation functions. Activation is transactional, requires a draft period with no submissions, preserves shared teachers as separate assignments, and supersedes the previous active batch. `scripts/prepare_roster_import.py` validates the private workbook offline and emits owner-only staging files only after a clean pass.
+
+### 2026-08-24 roster-import checkpoint
+
+- Removed the unused `pathway` column from the private workbook's Sections sheet.
+- The current workbook contains 75 sections, 105 teachers, 68 subjects, 2,684 students, 531 teaching assignments, and 18,936 student assignments.
+- The offline validator intentionally rejected the current workbook: 672 QC rows remain open, and it independently identified duplicated section code `11ES02`, one incomplete student identity, and one duplicated teaching-assignment tuple.
+- Twelve section-subject combinations currently contain multiple teachers. These remain explicit assignments; 261 student-subject mappings to more than one teacher are warnings requiring confirmation, not automatic deletions.
+- No production roster has been uploaded. The third migration must be dry-run, reviewed, and pushed before staging begins.
+- A private 17-sheet SY 2026-2027 administrative teacher-schedule workbook was reviewed as a reconciliation source. It uses department-specific teacher timetables rather than a normalized assignment table; hidden/older sheets, room/adviser sheets, and dated temporary schedules must not be treated as equally authoritative.
+- The compact Social Science daily-substitution sheet accounts for all 15 currently unresolved UCSP section assignments. Recurring two-teacher coverage must remain two assignments with explicit shared-substitution/exposure metadata; long-term substitute and overload coverage can remain single assignments. These proposed mappings have not been written to the workbook or Supabase.
+- The schedule did not provide an active Business 1 teacher assignment, and three JHS Science classes still point only to a new-teacher placeholder. Those five gaps remain blocked pending an endorsed identity or roster.
+- Student-facing branding now uses **Teacher Performance Evaluation**. The login includes evaluation instructions, the 1-5 scale, required qualitative-response guidance, completion-evidence guidance that protects response content, and a Data Privacy Act of 2012 notice. The displayed Second Semester SY 2025-2026 period must be confirmed because it differs from the SY 2026-2027 schedule source.
 
 ### 2026-08-23 implementation checkpoint
 
@@ -38,7 +52,7 @@ The repository now includes an initial Supabase migration with indexed foreign k
 - `scripts/provision_alpha.py` can create separate SHS or JHS cohorts of 2-10 fictional alpha accounts and isolated synthetic rosters using a locally entered secret key; generated credentials remain under ignored `exports/`.
 - Two fictional accounts and two synthetic assignments are provisioned, and the hosted login and normal student workflow passed manual testing.
 - `scripts/verify_live_security.py` performs alpha-only hosted checks for anonymous access, identity and roster isolation, response confidentiality, closed-period and duplicate rejection, logout, elevated-operator access, and cleanup. A signed-in `admin` profile remains a separate future test before an administrator interface is deployed.
-- The local suite contains 33 passing tests. Five tests statically inspect the migration security/versioning contract, six test the Supabase adapter contract, and seven test the level-aware live verifier's offline safety behavior.
+- The local suite contains 43 passing tests, including nine roster staging/preparation checks, five original migration-contract checks, six Supabase adapter checks, seven level-aware live-verifier safety checks, and a student-facing branding/privacy-content guard.
 - The hosted verifier passed 26 of 26 checks separately for SHS and JHS on 2026-08-23, including anonymous denial, identity and roster isolation, response confidentiality, submission enforcement, logout, elevated-operator visibility, and verified fixture cleanup. Sanitized evidence is retained in `docs/live_security_verification_20260823.md` and `docs/live_security_verification_jhs_20260823.md`.
 
 ## 2. Requirements Established in the Conversation
@@ -95,9 +109,11 @@ The fixed 50-30-20 policy was implemented as an operational default, not because
 | `supabase/config.toml` | Supabase CLI project configuration. It contains no database password or API secret. |
 | `supabase/migrations/202608230001_initial_schema.sql` | Relational schema, indexes, triggers, RLS policies, grants, immutable-question guards, and atomic submission RPC. |
 | `supabase/migrations/202608230002_question_banks_v1.sql` | Published SHS/JHS version-1 question-bank seed with 56 items. |
+| `supabase/migrations/202608240001_roster_import_staging.sql` | Private roster batches and staging tables, validation issues, assignment provenance, and elevated transactional activation. |
 | `docs/supabase_setup.md` | Hosted project, migration, authentication, secret, and verification procedure. |
 | `scripts/provision_alpha.py` | Local administrator-only creation of fictional alpha accounts, roster assignments, and owner-only credential output. |
 | `scripts/verify_live_security.py` | Alpha-only destructive-but-reversible hosted RLS and submission-policy verification with hidden key prompts and cleanup. |
+| `scripts/prepare_roster_import.py` | Offline workbook validation and owner-only normalized staging-bundle preparation; performs no upload. |
 
 ### `feval/` package
 
@@ -698,9 +714,10 @@ PYTHONPYCACHEPREFIX=/tmp/feval_pycache ./.venv/bin/python -m py_compile app.py s
 ./.venv/bin/streamlit run student_app.py
 ```
 
-The current suite contains 33 tests: 10 aggregation/scoring tests, 5
+The current suite contains 43 tests: 10 aggregation/scoring tests, 6
 student-portal tests, 6 Supabase adapter tests, 5 static Supabase
-migration-contract tests, and 7 offline live-verifier safety tests. The suite
+migration-contract tests, 7 offline live-verifier safety tests, and 9 roster
+staging/preparation tests. The suite
 includes guards for synthetic public identities, required qualitative prompts,
 question-seed parity, RLS/revokes, immutable question versions, RPC grants, and
 database duplicate prevention. These SQL tests inspect migration text; live
