@@ -15,8 +15,9 @@ no real student roster, password, credential, or evaluation response. The
 Streamlit authentication/data adapter, synthetic alpha provisioner, and
 alpha-only live security verifier are implemented. The hosted login and normal
 student workflow have passed manual testing with synthetic accounts. The
-automated hosted verifier subsequently passed 26 of 26 checks with cleanup on
-2026-08-23. See `live_security_verification_20260823.md` for sanitized evidence.
+automated hosted verifier subsequently passed 26 of 26 checks with cleanup for
+each of SHS and JHS on 2026-08-23. See `live_security_verification_20260823.md`
+and `live_security_verification_jhs_20260823.md` for sanitized evidence.
 
 ## Create the Hosted Project
 
@@ -103,6 +104,7 @@ script from the repository root:
 ```bash
 source .venv/bin/activate
 python scripts/provision_alpha.py \
+  --school-level SHS \
   --url https://YOUR_PROJECT_REF.supabase.co \
   --students 2 \
   --open-days 7
@@ -120,9 +122,25 @@ The script creates:
 - one open synthetic evaluation period linked to SHS question bank version 1;
 - roster-authorized teaching and student assignments.
 
-Generated passwords are written to `exports/alpha_credentials_<timestamp>.csv`.
+Generated passwords are written to
+`exports/alpha_<school-level>_credentials_<timestamp>.csv`. The earlier SHS
+alpha run may still use the legacy `alpha_credentials_<timestamp>.csv` name.
 The directory is ignored by Git and the file is created with owner-only
 permissions. Delete the users and credential file after testing.
+
+To create the separate Grade 7 JHS fixture, run:
+
+```bash
+.venv/bin/python scripts/provision_alpha.py \
+  --school-level JHS \
+  --url https://YOUR_PROJECT_REF.supabase.co \
+  --students 2
+```
+
+This creates distinct `alpha.jhs.*@example.invalid` accounts, section
+`07JHS-ALPHA`, JHS teachers and subjects, and an
+`alpha_jhs_credentials_<timestamp>.csv` file. It links the shared synthetic
+period to the published JHS question bank without modifying the SHS fixture.
 
 ## Verify Hosted Security With Synthetic Accounts
 
@@ -131,6 +149,7 @@ sign in successfully:
 
 ```bash
 .venv/bin/python scripts/verify_live_security.py \
+  --school-level SHS \
   --url https://YOUR_PROJECT_REF.supabase.co \
   --credentials exports/alpha_credentials_YYYYMMDD_HHMMSS.csv
 ```
@@ -140,17 +159,27 @@ current `sb_secret_...` key at the second. Hidden input intentionally displays
 no characters while pasting. The script prints only key lengths and one-way
 fingerprints; it never prints or saves either key.
 
-The verifier refuses credentials outside the `example.invalid`, `ALPHA-*`, and
-`11STEM-ALPHA` fixture. It creates a temporary assignment authorized only for
-the second synthetic student, checks unauthenticated access, cross-student and
+The verifier refuses credentials outside the selected synthetic level's
+`example.invalid`, `ALPHA-*`, and alpha-section fixture. It creates a temporary
+assignment authorized only for the second synthetic student, checks
+unauthenticated access, cross-student and
 cross-roster reads, raw-response isolation, direct-write rejection, closed
 period rejection, successful atomic submission, duplicate prevention, audit
 visibility through the elevated operator key, and logout behavior. It restores
-the period, removes temporary
-rows in a `finally` cleanup path even when a check fails.
+the period and removes temporary rows in a `finally` cleanup path even when a
+check fails.
 
 Do not run this utility against real students. Preserve the terminal pass/fail
 output as alpha-test evidence, but do not preserve or share the entered keys.
+
+For JHS, use the generated JHS credential file and change the level explicitly:
+
+```bash
+.venv/bin/python scripts/verify_live_security.py \
+  --school-level JHS \
+  --url https://YOUR_PROJECT_REF.supabase.co \
+  --credentials exports/alpha_jhs_credentials_YYYYMMDD_HHMMSS.csv
+```
 
 ## Enable Authenticated Streamlit Mode
 

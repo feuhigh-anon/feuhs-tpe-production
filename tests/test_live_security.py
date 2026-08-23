@@ -7,11 +7,13 @@ import tempfile
 import unittest
 
 from scripts.verify_live_security import (
+    ALPHA_FIXTURES,
     ALPHA_SECTION_CODE,
     CheckReport,
     load_alpha_credentials,
     response_payload,
 )
+from scripts.provision_alpha import FIXTURES
 
 
 FIELDNAMES = (
@@ -24,7 +26,13 @@ FIELDNAMES = (
 
 
 class LiveSecurityTest(unittest.TestCase):
-    def write_credentials(self, directory: Path, *, section: str = ALPHA_SECTION_CODE) -> Path:
+    def write_credentials(
+        self,
+        directory: Path,
+        *,
+        section: str = ALPHA_SECTION_CODE,
+        school_level: str = "SHS",
+    ) -> Path:
         path = directory / "alpha_credentials.csv"
         with path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
@@ -32,10 +40,13 @@ class LiveSecurityTest(unittest.TestCase):
             for index in (1, 2):
                 writer.writerow(
                     {
-                        "email": f"alpha.student{index:02d}@example.invalid",
+                        "email": (
+                            f"alpha.{school_level.lower()}.student{index:02d}"
+                            "@example.invalid"
+                        ),
                         "password": f"Synthetic-{index}",
                         "display_name": f"Alpha Student {index:02d}",
-                        "student_number": f"ALPHA-{index:04d}",
+                        "student_number": f"ALPHA-{school_level}-{index:04d}",
                         "section": section,
                     }
                 )
@@ -57,6 +68,38 @@ class LiveSecurityTest(unittest.TestCase):
             path = self.write_credentials(Path(directory), section="11STEM-REAL")
             with self.assertRaises(SystemExit):
                 load_alpha_credentials(path)
+
+    def test_jhs_credentials_require_the_jhs_verifier_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_credentials(
+                Path(directory),
+                section=ALPHA_FIXTURES["JHS"].section_code,
+                school_level="JHS",
+            )
+            credentials = load_alpha_credentials(path, ALPHA_FIXTURES["JHS"])
+            with self.assertRaises(SystemExit):
+                load_alpha_credentials(path, ALPHA_FIXTURES["SHS"])
+
+        self.assertEqual(len(credentials), 2)
+        self.assertEqual(credentials[0].section, "07JHS-ALPHA")
+
+    def test_provisioning_fixtures_are_distinct_and_level_correct(self):
+        shs = FIXTURES["SHS"]
+        jhs = FIXTURES["JHS"]
+
+        self.assertEqual(shs["section"]["school_level"], "SHS")
+        self.assertEqual(shs["section"]["grade_level"], 11)
+        self.assertEqual(jhs["section"]["school_level"], "JHS")
+        self.assertEqual(jhs["section"]["grade_level"], 7)
+        self.assertEqual(jhs["section"]["strand"], "")
+        self.assertNotEqual(shs["section"]["code"], jhs["section"]["code"])
+        self.assertTrue(
+            {
+                item["subject"]["code"] for item in shs["assignments"]
+            }.isdisjoint(
+                item["subject"]["code"] for item in jhs["assignments"]
+            )
+        )
 
     def test_credentials_accessible_to_other_users_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

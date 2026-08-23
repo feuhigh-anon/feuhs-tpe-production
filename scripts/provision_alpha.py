@@ -22,37 +22,92 @@ from supabase.lib.client_options import SyncClientOptions
 from supabase_auth.errors import AuthApiError
 
 
-SECTION = {
-    "code": "11STEM-ALPHA",
-    "school_level": "SHS",
-    "grade_level": 11,
-    "strand": "STEM",
-    "is_active": True,
+FIXTURES = {
+    "SHS": {
+        "section": {
+            "code": "11STEM-ALPHA",
+            "school_level": "SHS",
+            "grade_level": 11,
+            "strand": "STEM",
+            "is_active": True,
+        },
+        "assignments": (
+            {
+                "teacher": {
+                    "employee_number": "ALPHA-T001",
+                    "display_name": "Teacher Alpha",
+                    "email": "teacher.alpha@example.invalid",
+                    "is_active": True,
+                },
+                "subject": {
+                    "code": "ALPHA-CALC",
+                    "name": "Basic Calculus",
+                    "is_active": True,
+                },
+            },
+            {
+                "teacher": {
+                    "employee_number": "ALPHA-T002",
+                    "display_name": "Teacher Beta",
+                    "email": "teacher.beta@example.invalid",
+                    "is_active": True,
+                },
+                "subject": {
+                    "code": "ALPHA-EARTH",
+                    "name": "Earth Science",
+                    "is_active": True,
+                },
+            },
+        ),
+    },
+    "JHS": {
+        "section": {
+            "code": "07JHS-ALPHA",
+            "school_level": "JHS",
+            "grade_level": 7,
+            "strand": "",
+            "is_active": True,
+        },
+        "assignments": (
+            {
+                "teacher": {
+                    "employee_number": "ALPHA-JHS-T001",
+                    "display_name": "Teacher Gamma",
+                    "email": "teacher.gamma.jhs@example.invalid",
+                    "is_active": True,
+                },
+                "subject": {
+                    "code": "ALPHA-JHS-MATH",
+                    "name": "JHS Mathematics",
+                    "is_active": True,
+                },
+            },
+            {
+                "teacher": {
+                    "employee_number": "ALPHA-JHS-T002",
+                    "display_name": "Teacher Delta",
+                    "email": "teacher.delta.jhs@example.invalid",
+                    "is_active": True,
+                },
+                "subject": {
+                    "code": "ALPHA-JHS-SCI",
+                    "name": "JHS Science",
+                    "is_active": True,
+                },
+            },
+        ),
+    },
 }
-TEACHING_ASSIGNMENTS = (
-    {
-        "teacher": {
-            "employee_number": "ALPHA-T001",
-            "display_name": "Teacher Alpha",
-            "email": "teacher.alpha@example.invalid",
-            "is_active": True,
-        },
-        "subject": {"code": "ALPHA-CALC", "name": "Basic Calculus", "is_active": True},
-    },
-    {
-        "teacher": {
-            "employee_number": "ALPHA-T002",
-            "display_name": "Teacher Beta",
-            "email": "teacher.beta@example.invalid",
-            "is_active": True,
-        },
-        "subject": {"code": "ALPHA-EARTH", "name": "Earth Science", "is_active": True},
-    },
-)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--school-level",
+        choices=("SHS", "JHS"),
+        default="SHS",
+        help="Synthetic school-level fixture to provision; defaults to SHS.",
+    )
     parser.add_argument(
         "--url",
         default=os.getenv("SUPABASE_URL", ""),
@@ -79,6 +134,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    school_level = args.school_level
+    fixture = FIXTURES[school_level]
+    section_definition = fixture["section"]
     url = args.url.strip()
     if not url.startswith("https://") or ".supabase.co" not in url:
         raise SystemExit("Provide the hosted Supabase project URL with --url or SUPABASE_URL.")
@@ -99,7 +157,11 @@ def main() -> None:
             persist_session=False,
         ),
     )
-    emails = [f"alpha.student{index:02d}@example.invalid" for index in range(1, args.students + 1)]
+    email_prefix = "alpha.student" if school_level == "SHS" else "alpha.jhs.student"
+    emails = [
+        f"{email_prefix}{index:02d}@example.invalid"
+        for index in range(1, args.students + 1)
+    ]
     try:
         users = client.auth.admin.list_users(page=1, per_page=1000)
     except AuthApiError as exc:
@@ -120,15 +182,15 @@ def main() -> None:
             "Alpha accounts already exist; no changes were made: " + ", ".join(duplicates)
         )
 
-    section = upsert_one(client, "sections", SECTION, "code")
+    section = upsert_one(client, "sections", section_definition, "code")
     question_bank = one(
         client.table("question_banks")
         .select("id")
-        .eq("code", "faculty-evaluation-shs")
+        .eq("code", f"faculty-evaluation-{school_level.lower()}")
         .eq("version", 1)
         .eq("status", "published")
         .execute(),
-        "Published SHS question bank version 1 was not found.",
+        f"Published {school_level} question bank version 1 was not found.",
     )
 
     now = datetime.now(timezone.utc)
@@ -148,14 +210,14 @@ def main() -> None:
     client.table("evaluation_period_instruments").upsert(
         {
             "evaluation_period_id": period["id"],
-            "school_level": "SHS",
+            "school_level": school_level,
             "question_bank_id": question_bank["id"],
         },
         on_conflict="evaluation_period_id,school_level",
     ).execute()
 
     teaching_assignment_ids = []
-    for definition in TEACHING_ASSIGNMENTS:
+    for definition in fixture["assignments"]:
         teacher = upsert_one(
             client, "teachers", definition["teacher"], "employee_number"
         )
@@ -177,7 +239,8 @@ def main() -> None:
     credentials = []
     for index, email in enumerate(emails, start=1):
         password = secure_password()
-        display_name = f"Alpha Student {index:02d}"
+        display_name = f"{school_level} Alpha Student {index:02d}"
+        student_number = f"ALPHA-{school_level}-{index:04d}"
         created = client.auth.admin.create_user(
             {
                 "email": email,
@@ -196,7 +259,7 @@ def main() -> None:
         client.table("students").upsert(
             {
                 "profile_id": str(user.id),
-                "student_number": f"ALPHA-{index:04d}",
+                "student_number": student_number,
                 "section_id": section["id"],
             },
             on_conflict="profile_id",
@@ -217,13 +280,16 @@ def main() -> None:
                 "email": email,
                 "password": password,
                 "display_name": display_name,
-                "student_number": f"ALPHA-{index:04d}",
-                "section": SECTION["code"],
+                "student_number": student_number,
+                "section": section_definition["code"],
             }
         )
 
-    output = write_credentials(credentials)
-    print(f"Created {len(credentials)} synthetic students and {len(teaching_assignment_ids)} assignments.")
+    output = write_credentials(credentials, school_level)
+    print(
+        f"Created {len(credentials)} synthetic {school_level} students and "
+        f"{len(teaching_assignment_ids)} assignments."
+    )
     print(f"Credentials saved locally with owner-only permissions: {output}")
     print("Delete the synthetic users and local credential file after alpha testing.")
 
@@ -253,11 +319,11 @@ def secure_password() -> str:
     return f"Fe!{secrets.token_urlsafe(12)}9a"
 
 
-def write_credentials(rows: list[dict[str, str]]) -> Path:
+def write_credentials(rows: list[dict[str, str]], school_level: str = "SHS") -> Path:
     output_dir = Path("exports")
     output_dir.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output = output_dir / f"alpha_credentials_{timestamp}.csv"
+    output = output_dir / f"alpha_{school_level.lower()}_credentials_{timestamp}.csv"
     descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))

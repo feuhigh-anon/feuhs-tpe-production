@@ -40,6 +40,19 @@ class LiveSecurityError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class AlphaFixtureConfig:
+    school_level: str
+    section_code: str
+    grade_level: int
+
+
+ALPHA_FIXTURES = {
+    "SHS": AlphaFixtureConfig("SHS", ALPHA_SECTION_CODE, 11),
+    "JHS": AlphaFixtureConfig("JHS", "07JHS-ALPHA", 7),
+}
+
+
+@dataclass(frozen=True)
 class AlphaCredential:
     email: str
     password: str
@@ -100,6 +113,12 @@ class TemporaryFixture:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--school-level",
+        choices=("SHS", "JHS"),
+        default="SHS",
+        help="Synthetic school-level fixture to verify; defaults to SHS.",
+    )
+    parser.add_argument(
         "--url",
         default=os.getenv("SUPABASE_URL", ""),
         help="Hosted project URL; defaults to SUPABASE_URL.",
@@ -114,10 +133,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    fixture_config = ALPHA_FIXTURES[args.school_level]
     url = args.url.strip()
     validate_project_url(url)
-    credential_path = resolve_credentials_path(args.credentials)
-    credentials = load_alpha_credentials(credential_path)
+    credential_path = resolve_credentials_path(args.credentials, fixture_config)
+    credentials = load_alpha_credentials(credential_path, fixture_config)
 
     publishable_key = hidden_key(
         "Supabase publishable key (input hidden): ",
@@ -141,7 +161,7 @@ def main() -> None:
             for credential in credentials[:2]
         ]
         student_a, student_b = students
-        alpha_context = validate_alpha_context(admin, students)
+        alpha_context = validate_alpha_context(admin, students, fixture_config)
         period = alpha_context["period"]
         section = alpha_context["section"]
         question_items = alpha_context["question_items"]
@@ -209,11 +229,19 @@ def hidden_key(prompt: str, prefix: str) -> str:
     return value
 
 
-def resolve_credentials_path(path: Path | None) -> Path:
+def resolve_credentials_path(
+    path: Path | None,
+    fixture: AlphaFixtureConfig = ALPHA_FIXTURES["SHS"],
+) -> Path:
     if path is not None:
         return path.expanduser().resolve()
+    patterns = (
+        ("alpha_credentials_*.csv", "alpha_shs_credentials_*.csv")
+        if fixture.school_level == "SHS"
+        else ("alpha_jhs_credentials_*.csv",)
+    )
     candidates = sorted(
-        Path("exports").glob("alpha_credentials_*.csv"),
+        (item for pattern in patterns for item in Path("exports").glob(pattern)),
         key=lambda item: item.stat().st_mtime,
         reverse=True,
     )
@@ -222,7 +250,10 @@ def resolve_credentials_path(path: Path | None) -> Path:
     return candidates[0].resolve()
 
 
-def load_alpha_credentials(path: Path) -> list[AlphaCredential]:
+def load_alpha_credentials(
+    path: Path,
+    fixture: AlphaFixtureConfig = ALPHA_FIXTURES["SHS"],
+) -> list[AlphaCredential]:
     if not path.is_file():
         raise SystemExit(f"Credentials file does not exist: {path}")
     mode = stat.S_IMODE(path.stat().st_mode)
@@ -254,8 +285,8 @@ def load_alpha_credentials(path: Path) -> list[AlphaCredential]:
             raise SystemExit("The verifier accepts only example.invalid accounts.")
         if not row.student_number.startswith("ALPHA-"):
             raise SystemExit("The verifier accepts only ALPHA student numbers.")
-        if row.section != ALPHA_SECTION_CODE:
-            raise SystemExit(f"The verifier accepts only section {ALPHA_SECTION_CODE}.")
+        if row.section != fixture.section_code:
+            raise SystemExit(f"The verifier accepts only section {fixture.section_code}.")
         if not row.password:
             raise SystemExit("A synthetic credential has a blank password.")
     return rows
@@ -293,6 +324,7 @@ def sign_in_student(
 def validate_alpha_context(
     admin: Client,
     students: Sequence[SignedInStudent],
+    fixture: AlphaFixtureConfig = ALPHA_FIXTURES["SHS"],
 ) -> dict[str, Any]:
     period = one(
         admin.table("evaluation_periods")
@@ -304,20 +336,26 @@ def validate_alpha_context(
     section = one(
         admin.table("sections")
         .select("id,code,school_level,grade_level,strand,is_active")
-        .eq("code", ALPHA_SECTION_CODE)
+        .eq("code", fixture.section_code)
         .execute(),
         "The synthetic alpha section was not found.",
     )
-    if section.get("school_level") != "SHS" or int(section.get("grade_level", 0)) != 11:
-        raise LiveSecurityError("The alpha section no longer matches the SHS Grade 11 fixture.")
+    if (
+        section.get("school_level") != fixture.school_level
+        or int(section.get("grade_level", 0)) != fixture.grade_level
+    ):
+        raise LiveSecurityError(
+            "The alpha section no longer matches the "
+            f"{fixture.school_level} Grade {fixture.grade_level} fixture."
+        )
 
     instrument = one(
         admin.table("evaluation_period_instruments")
         .select("question_bank_id")
         .eq("evaluation_period_id", period["id"])
-        .eq("school_level", "SHS")
+        .eq("school_level", fixture.school_level)
         .execute(),
-        "The SHS alpha questionnaire assignment was not found.",
+        f"The {fixture.school_level} alpha questionnaire assignment was not found.",
     )
     question_items = rows(
         admin.table("question_items")
@@ -327,7 +365,8 @@ def validate_alpha_context(
     )
     if len(question_items) != 28:
         raise LiveSecurityError(
-            f"Expected 28 SHS alpha questions but found {len(question_items)}."
+            f"Expected 28 {fixture.school_level} alpha questions but found "
+            f"{len(question_items)}."
         )
 
     for student in students:

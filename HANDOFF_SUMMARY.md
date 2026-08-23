@@ -35,11 +35,11 @@ The repository now includes an initial Supabase migration with indexed foreign k
 - All three qualitative prompts are required. Students must enter substantive feedback or `N/A`/`Not applicable`; these placeholders are stored but excluded from qualitative evidence scoring.
 - The frontend header, mobile evaluation container, selected-rating yellow state, light-mode review expander, and required qualitative validation have been corrected.
 - The student app now supports Supabase password login, token refresh, logout, RLS-filtered roster/question loading, and atomic RPC submission, while retaining secret-free demo mode.
-- `scripts/provision_alpha.py` can create 2-10 fictional alpha accounts and an isolated synthetic roster using a locally entered secret key; generated credentials remain under ignored `exports/`.
+- `scripts/provision_alpha.py` can create separate SHS or JHS cohorts of 2-10 fictional alpha accounts and isolated synthetic rosters using a locally entered secret key; generated credentials remain under ignored `exports/`.
 - Two fictional accounts and two synthetic assignments are provisioned, and the hosted login and normal student workflow passed manual testing.
 - `scripts/verify_live_security.py` performs alpha-only hosted checks for anonymous access, identity and roster isolation, response confidentiality, closed-period and duplicate rejection, logout, elevated-operator access, and cleanup. A signed-in `admin` profile remains a separate future test before an administrator interface is deployed.
-- The local suite contains 31 passing tests. Five tests statically inspect the migration security/versioning contract, six test the Supabase adapter contract, and five test the live verifier's offline safety behavior.
-- The hosted verifier passed 26 of 26 checks on 2026-08-23, including anonymous denial, identity and roster isolation, response confidentiality, submission enforcement, logout, elevated-operator visibility, and verified fixture cleanup. Sanitized evidence is retained in `docs/live_security_verification_20260823.md`.
+- The local suite contains 33 passing tests. Five tests statically inspect the migration security/versioning contract, six test the Supabase adapter contract, and seven test the level-aware live verifier's offline safety behavior.
+- The hosted verifier passed 26 of 26 checks separately for SHS and JHS on 2026-08-23, including anonymous denial, identity and roster isolation, response confidentiality, submission enforcement, logout, elevated-operator visibility, and verified fixture cleanup. Sanitized evidence is retained in `docs/live_security_verification_20260823.md` and `docs/live_security_verification_jhs_20260823.md`.
 
 ## 2. Requirements Established in the Conversation
 
@@ -654,31 +654,32 @@ must not be used for ordinary student requests because they bypass RLS.
 5. Hosted Supabase email/password authentication is configured for a small synthetic alpha cohort; public signup and anonymous sign-in remain disabled.
 6. Two synthetic students were created with `scripts/provision_alpha.py`; their credentials remain only in ignored local storage.
 7. The project URL and publishable key are configured, and the hosted login and normal synthetic workflow passed manual testing.
-8. `scripts/verify_live_security.py` passed 26 of 26 hosted checks; sanitized evidence is retained under `docs/`.
-9. Add password recovery only after production SMTP and redirect URLs are configured and tested.
-10. Complete alpha testing before importing real student records or accepting real responses.
+8. `scripts/verify_live_security.py` passed 26 of 26 hosted checks separately for SHS and JHS; sanitized evidence is retained under `docs/`.
+9. Manually inspect the JHS account workflow and question wording in the deployed Streamlit app before real JHS roster import.
+10. Add password recovery only after production SMTP and redirect URLs are configured and tested.
+11. Complete alpha testing before importing real student records or accepting real responses.
 
 ### Backend correctness
 
-11. Implement SHS branch-column coalescing and add a fixture test asserting complete teacher/section/subject assignment on the supplied SHS structure.
-12. Add canonical assignment and evaluation-period identities to normalized administrator records.
-13. Add enrollment denominators so response rates and coverage can be reported.
-14. Make PDF formula text use actual run-time weights.
+12. Implement SHS branch-column coalescing and add a fixture test asserting complete teacher/section/subject assignment on the supplied SHS structure.
+13. Add canonical assignment and evaluation-period identities to normalized administrator records.
+14. Add enrollment denominators so response rates and coverage can be reported.
+15. Make PDF formula text use actual run-time weights.
 
 ### Measurement validation
 
-15. Add teacher/class/subject/period identifiers to all diagnostics.
-16. Add ordinal reliability, omega, bootstrap intervals, and item-deletion reports.
-17. Run EFA/CFA and measurement-invariance checks separately for SHS and JHS.
-18. Fit a hierarchical model for student responses nested in classes and teachers.
-19. Calibrate qualitative evidence against a human-coded sample and comparable reference scale.
+16. Add teacher/class/subject/period identifiers to all diagnostics.
+17. Add ordinal reliability, omega, bootstrap intervals, and item-deletion reports.
+18. Run EFA/CFA and measurement-invariance checks separately for SHS and JHS.
+19. Fit a hierarchical model for student responses nested in classes and teachers.
+20. Calibrate qualitative evidence against a human-coded sample and comparable reference scale.
 
 ### Weight, NLP, and governance
 
-20. Define an external criterion with management and a psychometrician, then run candidate-weight sensitivity and grouped validation.
-21. If no external criterion exists, document the selected weights as institutional policy pending validation.
-22. Compare rules, embeddings, and supervised aspect/evidence extraction on a human-coded comment set.
-23. Add model versioning, data manifests, privacy notices, retention rules, suppression thresholds, role-separated administration, and review logs.
+21. Define an external criterion with management and a psychometrician, then run candidate-weight sensitivity and grouped validation.
+22. If no external criterion exists, document the selected weights as institutional policy pending validation.
+23. Compare rules, embeddings, and supervised aspect/evidence extraction on a human-coded comment set.
+24. Add model versioning, data manifests, privacy notices, retention rules, suppression thresholds, role-separated administration, and review logs.
 
 ## 12. Source Data Inventory
 
@@ -697,9 +698,9 @@ PYTHONPYCACHEPREFIX=/tmp/feval_pycache ./.venv/bin/python -m py_compile app.py s
 ./.venv/bin/streamlit run student_app.py
 ```
 
-The current suite contains 31 tests: 10 aggregation/scoring tests, 5
+The current suite contains 33 tests: 10 aggregation/scoring tests, 5
 student-portal tests, 6 Supabase adapter tests, 5 static Supabase
-migration-contract tests, and 5 offline live-verifier safety tests. The suite
+migration-contract tests, and 7 offline live-verifier safety tests. The suite
 includes guards for synthetic public identities, required qualitative prompts,
 question-seed parity, RLS/revokes, immutable question versions, RPC grants, and
 database duplicate prevention. These SQL tests inspect migration text; live

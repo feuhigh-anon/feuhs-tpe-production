@@ -15,6 +15,38 @@ FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
 
 ## 2026-08-23
 
+### 20:33:24 - Passed hosted JHS synthetic security verification
+
+- Provisioned two fictional Grade 7 JHS accounts in section `07JHS-ALPHA`
+  with two separate synthetic JHS teaching assignments.
+- Executed `scripts/verify_live_security.py --school-level JHS` against the
+  hosted project and published JHS version 1 question bank.
+- Passed all 26 checks covering anonymous denial, JHS student identity and
+  roster isolation, cross-assignment metadata, direct-write rejection,
+  closed-period enforcement, authorized 28-item atomic submission, duplicate
+  prevention, response confidentiality, logout, and elevated-operator access.
+- Confirmed fixture cleanup removed temporary responses and related rows and
+  restored the shared alpha period.
+- Added `docs/live_security_verification_jhs_20260823.md` as sanitized JHS
+  evidence. Manual JHS visual/workflow inspection remains pending.
+- Commit: pending.
+
+### 20:24:03 - Added a separate JHS synthetic security path
+
+- Generalized `scripts/provision_alpha.py` with `--school-level SHS|JHS` while
+  preserving SHS as the default.
+- Added a distinct Grade 7 JHS fixture using section `07JHS-ALPHA`, separate
+  fictional accounts, student numbers, teachers, subjects, and credential-file
+  naming. The shared alpha period is linked to the published JHS question bank.
+- Generalized `scripts/verify_live_security.py` to validate the selected school
+  level, section, grade, credential file, and corresponding question bank.
+- Added regression coverage preventing JHS credentials from being tested under
+  the SHS fixture and confirming that SHS/JHS identifiers remain distinct.
+- Verification: both command help screens loaded, Python compilation passed,
+  all 33 local tests passed, and `git diff --check` passed. The later 20:33:24
+  entry records successful hosted JHS provisioning and verification.
+- Commit: pending.
+
 ### 20:17:04 - Passed hosted synthetic security verification
 
 - Executed `scripts/verify_live_security.py` against the hosted synthetic alpha
