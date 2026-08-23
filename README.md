@@ -9,7 +9,8 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 - All source-controlled identities are synthetic. Raw exports, rosters, credentials, and production responses are excluded from Git.
 - The hosted Supabase project is created and linked through Supabase CLI. Both source-controlled migrations have been applied, creating 14 tables, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC.
 - The published SHS and JHS version-1 instruments contain 28 required items each: 25 Likert items and 3 qualitative prompts. The hosted database therefore starts with 2 question banks and 56 question items.
-- Streamlit is not yet connected to Supabase Auth or PostgreSQL. The deployed portal still uses synthetic in-memory data and is not approved for real evaluations.
+- The Supabase Auth, RLS-governed roster/question reads, session refresh, logout, and atomic submission integration are implemented in source. They activate only when both Streamlit Supabase secrets are present.
+- The current public deployment has no Supabase secrets and therefore remains a synthetic in-memory preview. Live authentication and policy tests are still required before real evaluations.
 - Do not use the current deployment for real students or real evaluation responses.
 
 For architecture decisions, statistical cautions, deployment status, and the
@@ -52,10 +53,10 @@ streamlit run app.py
 
 The student preview uses unmistakably synthetic profiles, `example.invalid`
 email addresses, and demo section identifiers. The student's section is supplied
-by the data layer, and the interface does not offer a section picker. Supabase
-Auth and PostgreSQL persistence are the next application integration layer; the
-database-side RLS policies, uniqueness constraint, versioned questions, and
-audit-event structures are already deployed. See
+by the data layer, and the interface does not offer a section picker. When
+Supabase secrets are configured, the same entry point displays a login boundary,
+loads only RLS-authorized roster data and database-versioned questions, and
+submits through the atomic database RPC. See
 [docs/supabase_setup.md](docs/supabase_setup.md) for the current migration and
 hosted-project procedure.
 
@@ -71,9 +72,10 @@ Branch: main
 Main file path: student_app.py
 ```
 
-No deployment secrets are required for the fictional preview. Future Supabase
-credentials must be configured through Streamlit Community Cloud Secrets and
-must never be committed.
+No deployment secrets are required for the fictional preview. Adding
+`SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` through Streamlit Community Cloud
+Secrets enables authenticated mode. Never configure a secret/service-role key
+in the student application.
 
 ## Supabase Database
 
@@ -133,9 +135,13 @@ feval/
   sample_data.py
   student_portal.py
   student_demo_data.py
+  supabase_portal.py
+scripts/
+  provision_alpha.py
 tests/
   test_pipeline.py
   test_student_portal.py
+  test_supabase_portal.py
   test_supabase_schema.py
 supabase/
   config.toml
@@ -166,7 +172,7 @@ flowchart LR
 
 | File | Main responsibility | Receives | Produces |
 | --- | --- | --- | --- |
-| `student_app.py` | Primary mobile-first student portal and deployment entrypoint. | Synthetic portal data now; authenticated Supabase records later. | Roster-scoped evaluation workflow and in-memory demo submissions. |
+| `student_app.py` | Primary mobile-first student portal and deployment entrypoint. | Synthetic data without secrets; per-session authenticated Supabase data with secrets. | Login-gated roster workflow and demo or atomic database submissions. |
 | `app.py` | Administrator Streamlit analysis interface. | Uploaded SharePoint export or generated demo data. | Visible app tabs, mapping controls, metrics, dataframes, CSV downloads. |
 | `feval/models.py` | Shared dataclasses and computed column groups. | Question metadata and normalized response data. | `QuestionItem`, `QuestionBlock`, `ColumnMatch`, `NormalizedExport`. |
 | `feval/questions.py` | Canonical SHS/JHS question text and item IDs. | Hard-coded SHS/JHS instrument wording. | `DEFAULT_QUESTION_BLOCKS` and `get_question_block()`. |
@@ -178,20 +184,23 @@ flowchart LR
 | `feval/sample_data.py` | Synthetic SharePoint-style data for preview and tests. | A `QuestionBlock`. | Demo `DataFrame` with metadata, Likert labels, and comments. |
 | `feval/student_portal.py` | Student roster and submission business rules. | Student profile, assignments, and submissions. | Authorized and pending assignment sets plus stable evaluation keys. |
 | `feval/student_demo_data.py` | Public-safe fictional records for the deployed preview. | No external data. | Synthetic profile, assignments, and initial submission history. |
+| `feval/supabase_portal.py` | Authenticated student data adapter. | Project URL, publishable key, student session, and RLS-filtered tables. | Refreshed session, database questionnaire, roster snapshot, and RPC submission. |
+| `scripts/provision_alpha.py` | Administrator-only synthetic alpha provisioner. | Project URL and a secret key entered at a hidden terminal prompt. | Fictional accounts/roster and an ignored owner-only credentials CSV. |
 | `feval/__init__.py` | Small public package surface. | Package imports. | Exposes `DEFAULT_QUESTION_BLOCKS` and `get_question_block`. |
 | `tests/test_pipeline.py` | End-to-end and behavior tests. | Demo/generated data. | Assertions for ingestion, block structure, scoring output, NLP fields, and class-load pooling. |
 | `tests/test_student_portal.py` | Portal authorization tests. | Synthetic student and assignment records. | Assertions for section scoping, submitted filtering, and stable keys. |
+| `tests/test_supabase_portal.py` | Auth adapter contract tests. | Synthetic database question rows and response dictionaries. | Assertions for secret-key rejection, questionnaire structure, and submission payloads. |
 | `tests/test_supabase_schema.py` | Static database-contract tests. | Source-controlled SQL migrations and Python question banks. | Assertions for RLS/revokes, versioning, duplicate prevention, RPC grants, and seeded-question parity. |
 
 ### `student_app.py`
 
 `student_app.py` is the primary user experience. It renders Home, My Teachers,
 Evaluation, Review, Submitted, My Evaluations, and Help views. The evaluation is
-split into four sections and uses the complete SHS question bank. Current
-submissions live only in per-session memory. Production authentication and
-database writes are intentionally not simulated in the public preview; the next
-implementation step is to replace the synthetic data adapter with per-session
-Supabase Auth and RLS-governed database calls.
+split into four sections. Without Supabase settings it uses the complete in-code
+SHS demo instrument and in-memory submissions. With the project URL and
+publishable key configured, it requires Supabase email/password authentication,
+refreshes the student's session, loads the active database question-bank version
+and authorized assignments through RLS, and submits through `submit_evaluation`.
 
 ### `app.py`
 

@@ -4,3 +4,4 @@ pandas>=2.0
 reportlab>=4.0.0
 scipy>=1.10
 streamlit>=1.50
+supabase>=2.0,<3.0

@@ -10,8 +10,10 @@ The repository contains two ordered migrations:
 2. `202608230002_question_banks_v1.sql` installs and publishes the current SHS
    and JHS version 1 questionnaires.
 
-These migrations contain no student roster, password, credential, or real
-evaluation response.
+Both migrations were applied to the hosted project on 2026-08-23. They contain
+no student roster, password, credential, or real evaluation response. The
+Streamlit authentication/data adapter and a synthetic alpha provisioner are now
+implemented in source, but authenticated live-policy testing is still pending.
 
 ## Create the Hosted Project
 
@@ -80,13 +82,58 @@ SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
 ```
 
 Configure these in `.streamlit/secrets.toml` locally and Streamlit Community
-Cloud Secrets when the connection layer is implemented. The publishable key
+Cloud Secrets to enable authenticated mode. With neither value configured, the
+application intentionally remains in fictional demo mode. The publishable key
 does not grant student access by itself; authenticated JWTs and RLS determine
 which rows a student can read.
 
 Do not place a Supabase secret key or legacy service-role key in the student app.
 Elevated keys bypass RLS and are reserved for a separate, tightly controlled
 administrator provisioning process.
+
+## Provision the Synthetic Alpha Cohort
+
+Complete the authentication settings above before provisioning. Find the
+project URL under **Project Settings -> API Keys**. Run the local administrator
+script from the repository root:
+
+```bash
+source .venv/bin/activate
+python scripts/provision_alpha.py \
+  --url https://YOUR_PROJECT_REF.supabase.co \
+  --students 2 \
+  --open-days 7
+```
+
+The script asks for the current `sb_secret_...` key through a hidden terminal
+prompt. Do not put that key in the command, `.env`, Streamlit Secrets, GitHub, a
+screenshot, or chat. It is used only by this local administrator process.
+
+The script creates:
+
+- 2-10 fictional `example.invalid` student accounts with confirmed emails;
+- one synthetic SHS section;
+- two fictional teachers and subjects;
+- one open synthetic evaluation period linked to SHS question bank version 1;
+- roster-authorized teaching and student assignments.
+
+Generated passwords are written to `exports/alpha_credentials_<timestamp>.csv`.
+The directory is ignored by Git and the file is created with owner-only
+permissions. Delete the users and credential file after testing.
+
+## Enable Authenticated Streamlit Mode
+
+For local testing, create the ignored `.streamlit/secrets.toml` file:
+
+```toml
+SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
+```
+
+Use the same two values in the deployed app's **Settings -> Secrets** panel.
+After saving them, the public preview changes to the FEU student login screen.
+Do not add the secret key. The student app rejects keys beginning with
+`sb_secret_` as a defense against accidental configuration.
 
 ## How Questionnaire Changes Work
 

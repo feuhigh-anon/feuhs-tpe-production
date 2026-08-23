@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import html
+import os
 from datetime import datetime
 
 import streamlit as st
 
+from feval.models import QuestionBlock
 from feval.questions import DEFAULT_QUESTION_BLOCKS
 from feval.student_demo_data import DEMO_ASSIGNMENTS, DEMO_STUDENT, DEMO_SUBMISSIONS
 from feval.student_portal import (
@@ -15,6 +17,21 @@ from feval.student_portal import (
     assignments_for_student,
     pending_assignments,
     submitted_assignment_ids,
+)
+from feval.supabase_portal import (
+    AuthSession,
+    PortalAuthenticationError,
+    PortalConfigurationError,
+    PortalDataError,
+    PortalSubmissionError,
+    PortalSnapshot,
+    SupabaseSettings,
+    load_portal_snapshot,
+    response_payload,
+    restore_session,
+    sign_in_with_password,
+    sign_out,
+    submit_evaluation,
 )
 
 
@@ -33,22 +50,77 @@ RATING_LABELS = {
     4: "Agree",
     5: "Strongly Agree",
 }
+CLIENT_VERSION = "streamlit-alpha-1"
+AUTH_STATE_KEYS = (
+    "supabase_session",
+    "supabase_snapshot",
+    "supabase_client",
+)
 
 
-def initialize_state() -> None:
+def configured_supabase_settings() -> SupabaseSettings | None:
+    try:
+        secrets = st.secrets
+        url = str(secrets.get("SUPABASE_URL", "") or "").strip()
+        publishable_key = str(secrets.get("SUPABASE_PUBLISHABLE_KEY", "") or "").strip()
+    except (FileNotFoundError, RuntimeError):
+        url = ""
+        publishable_key = ""
+
+    url = str(os.getenv("SUPABASE_URL", url)).strip()
+    publishable_key = str(os.getenv("SUPABASE_PUBLISHABLE_KEY", publishable_key)).strip()
+    if not url and not publishable_key:
+        return None
+    if not url or not publishable_key:
+        raise PortalConfigurationError(
+            "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together."
+        )
+    settings = SupabaseSettings(url=url, publishable_key=publishable_key)
+    settings.validate()
+    return settings
+
+
+def initialize_state(mode: str) -> None:
+    if st.session_state.get("portal_mode") not in (None, mode):
+        clear_portal_state(clear_theme=False)
     defaults = {
+        "portal_mode": mode,
         "portal_page": "home",
         "portal_theme": "light",
         "selected_assignment_id": None,
         "evaluation_section": 0,
         "answers": {},
         "comments": {},
-        "submissions": list(DEMO_SUBMISSIONS),
+        "submissions": list(DEMO_SUBMISSIONS) if mode == "demo" else [],
         "last_submission": None,
+        "supabase_session": None,
+        "supabase_snapshot": None,
+        "supabase_client": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def clear_portal_state(*, clear_theme: bool) -> None:
+    theme = st.session_state.get("portal_theme", "light")
+    for key in list(st.session_state):
+        del st.session_state[key]
+    if not clear_theme:
+        st.session_state.portal_theme = theme
+
+
+def clear_authentication() -> None:
+    client = st.session_state.get("supabase_client")
+    if client is not None:
+        sign_out(client)
+    for key in AUTH_STATE_KEYS:
+        st.session_state.pop(key, None)
+    st.session_state.portal_page = "home"
+    st.session_state.selected_assignment_id = None
+    st.session_state.answers = {}
+    st.session_state.comments = {}
+    st.rerun()
 
 
 def navigate(page: str) -> None:
@@ -62,11 +134,27 @@ def select_assignment(assignment_id: str) -> None:
     navigate("evaluation")
 
 
-def portal_data():
+def demo_portal_data():
     student = DEMO_STUDENT
     assignments = assignments_for_student(student, DEMO_ASSIGNMENTS)
     submitted = submitted_assignment_ids(student, st.session_state.submissions)
-    return student, assignments, submitted
+    block = DEFAULT_QUESTION_BLOCKS[student.school_level.lower()]
+    return student, assignments, submitted, block
+
+
+def authenticated_portal_data(settings: SupabaseSettings):
+    saved_session = st.session_state.get("supabase_session")
+    if not isinstance(saved_session, AuthSession):
+        return None
+    client, refreshed_session = restore_session(settings, saved_session)
+    st.session_state.supabase_session = refreshed_session
+    st.session_state.supabase_client = client
+    snapshot = st.session_state.get("supabase_snapshot")
+    if not isinstance(snapshot, PortalSnapshot):
+        snapshot = load_portal_snapshot(client, refreshed_session)
+        st.session_state.supabase_snapshot = snapshot
+    submitted = submitted_assignment_ids(snapshot.student, snapshot.submissions)
+    return snapshot.student, snapshot.assignments, submitted, snapshot.question_block
 
 
 def current_assignment(assignments: tuple[TeacherAssignment, ...]) -> TeacherAssignment | None:
@@ -166,6 +254,14 @@ def inject_styles(theme: str) -> None:
         .st-key-portal_header .stButton button:hover {{ color: var(--gold); background: transparent; }}
         .header-title {{ color: #FFFFFF; font-size: .94rem; font-weight: 700; line-height: 1.15; }}
         .header-title span {{ display: block; font-size: .82rem; font-weight: 500; opacity: .92; }}
+        .login-brand {{
+            width: calc(100% + 2rem); margin: 0 -1rem 2rem; padding: 2.25rem 1.5rem 2rem;
+            background: var(--deep); border-bottom: 4px solid var(--gold); color: #FFFFFF;
+        }}
+        .login-brand strong {{ display: block; color: #FFFFFF; font-size: 1.45rem; line-height: 1.2; }}
+        .login-brand span {{ display: block; color: #FFFFFF; margin-top: .35rem; opacity: .9; }}
+        .login-heading {{ color: var(--primary); font-size: 1.2rem; font-weight: 800; margin-bottom: .25rem; }}
+        .login-copy {{ color: var(--muted); font-size: .86rem; margin-bottom: 1.2rem; }}
         [data-testid="stVerticalBlockBorderWrapper"] {{
             border: 1px solid var(--border) !important;
             border-radius: 6px !important;
@@ -247,7 +343,10 @@ def inject_styles(theme: str) -> None:
         }}
         button[data-testid="stBaseButton-primary"],
         button[data-testid="stBaseButton-primary"] p,
-        button[data-testid="stBaseButton-primary"] span {{ color: #FFFFFF !important; }}
+        button[data-testid="stBaseButton-primary"] span,
+        button[data-testid="stBaseButton-primaryFormSubmit"],
+        button[data-testid="stBaseButton-primaryFormSubmit"] p,
+        button[data-testid="stBaseButton-primaryFormSubmit"] span {{ color: #FFFFFF !important; }}
         .stButton button p, .stFormSubmitButton button p {{ color: inherit; }}
         .stButton button:focus-visible, .stFormSubmitButton button:focus-visible {{
             outline: 3px solid var(--gold); outline-offset: 2px;
@@ -307,9 +406,54 @@ def inject_styles(theme: str) -> None:
     )
 
 
+def render_login(settings: SupabaseSettings) -> None:
+    st.markdown(
+        """
+        <div class="login-brand">
+          <strong>FEU High School</strong>
+          <span>Faculty Evaluation</span>
+        </div>
+        <div class="login-heading">Student Sign In</div>
+        <div class="login-copy">Use the evaluation account issued to you.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.form("student_login", clear_on_submit=False):
+        email = st.text_input("Email", autocomplete="email")
+        password = st.text_input("Password", type="password", autocomplete="current-password")
+        submitted = st.form_submit_button(
+            "Sign In",
+            icon=":material/login:",
+            type="primary",
+            use_container_width=True,
+        )
+    if submitted:
+        if not email.strip() or not password:
+            st.error("Enter both your email and password.")
+            return
+        try:
+            client, session = sign_in_with_password(settings, email, password)
+        except PortalAuthenticationError:
+            st.error("Sign-in failed. Check your account details and try again.")
+            return
+        st.session_state.supabase_client = client
+        st.session_state.supabase_session = session
+        st.session_state.supabase_snapshot = None
+        st.session_state.portal_page = "home"
+        st.rerun()
+
+
 def render_header(back_page: str | None = None) -> None:
     with st.container(key="portal_header"):
-        left, title, right = st.columns([0.14, 0.69, 0.17], vertical_alignment="center")
+        authenticated = st.session_state.get("portal_mode") == "supabase"
+        if authenticated:
+            left, title, theme_column, logout_column = st.columns(
+                [0.13, 0.59, 0.14, 0.14], vertical_alignment="center"
+            )
+        else:
+            left, title, theme_column = st.columns(
+                [0.14, 0.69, 0.17], vertical_alignment="center"
+            )
         with left:
             icon = ":material/arrow_back:" if back_page else ":material/menu:"
             if st.button("", icon=icon, key="header_left", help="Back" if back_page else "Menu"):
@@ -320,12 +464,16 @@ def render_header(back_page: str | None = None) -> None:
                 '<div class="header-title">FEU High School<span>Faculty Evaluation</span></div>',
                 unsafe_allow_html=True,
             )
-        with right:
+        with theme_column:
             dark = st.session_state.portal_theme == "dark"
             icon = ":material/light_mode:" if dark else ":material/dark_mode:"
             if st.button("", icon=icon, key="theme_toggle", help="Switch color theme"):
                 st.session_state.portal_theme = "light" if dark else "dark"
                 st.rerun()
+        if authenticated:
+            with logout_column:
+                if st.button("", icon=":material/logout:", key="logout", help="Sign out"):
+                    clear_authentication()
 
 
 def render_bottom_nav(active: str) -> None:
@@ -358,6 +506,11 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     render_header()
     completed = len(submitted)
     total = len(assignments)
+    profile_parts = [f"Grade {student.grade_level}"]
+    if student.strand:
+        profile_parts.append(student.strand)
+    profile_parts.append(student.section)
+    profile_meta = " · ".join(profile_parts)
 
     with st.container(border=True, key="profile_card"):
         initials = "".join(part[0] for part in student.name.split()[:2]).upper()
@@ -369,7 +522,7 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
                 <div style="flex:1">
                   <div class="profile-name">{html.escape(student.name)}</div>
                   <div class="gold-rule"></div>
-                  <div class="profile-meta">Grade {student.grade_level} · {html.escape(student.strand)} · {html.escape(student.section)}</div>
+                  <div class="profile-meta">{html.escape(profile_meta)}</div>
                 </div>
               </div>
             </div>
@@ -381,7 +534,7 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             f"""
             <div class="period-row">
               <div><div class="period-label">Evaluation Period</div><div class="period-value">{html.escape(student.evaluation_period)}</div></div>
-              <div class="subject-mark">Q2</div>
+              <div class="subject-mark">{html.escape(subject_mark(student.evaluation_period))}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -449,8 +602,7 @@ def render_teachers(assignments, submitted: frozenset[str]) -> None:
     render_bottom_nav("teachers")
 
 
-def evaluation_sections():
-    block = DEFAULT_QUESTION_BLOCKS["shs"]
+def evaluation_sections(block: QuestionBlock):
     return (
         ("Teacher Performance", block.faculty_items, "rating"),
         ("Student Experience", block.overall_experience_items, "rating"),
@@ -474,14 +626,14 @@ def render_assignment_heading(assignment: TeacherAssignment) -> None:
     )
 
 
-def render_evaluation(assignment: TeacherAssignment | None) -> None:
+def render_evaluation(assignment: TeacherAssignment | None, block: QuestionBlock) -> None:
     if assignment is None:
         navigate("teachers")
         return
 
     render_header("teachers")
     render_assignment_heading(assignment)
-    sections = evaluation_sections()
+    sections = evaluation_sections(block)
     section_index = min(st.session_state.evaluation_section, len(sections) - 1)
     title, items, section_type = sections[section_index]
     st.progress(section_index / len(sections))
@@ -506,9 +658,10 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
                     unsafe_allow_html=True,
                 )
         else:
+            required_count = sum(item.required for item in items)
             st.caption(
-                "All three qualitative responses are required. Enter N/A or Not applicable "
-                "when you have no additional feedback."
+                f"All {required_count} required qualitative responses must be completed. Enter N/A or Not "
+                "applicable when you have no additional feedback."
             )
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
@@ -548,12 +701,12 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
             for item in items:
                 widget_key = f"rating_{assignment.id}_{item.id}"
                 value = st.session_state.get(widget_key)
-                if value is None:
+                if value is None and item.required:
                     missing.append(item.text)
-                else:
+                elif value is not None:
                     st.session_state.answers[widget_key] = value
             if missing:
-                st.error(f"Please answer all {len(items)} statements before continuing.")
+                st.error(f"Please answer the {len(missing)} remaining required statements before continuing.")
                 return
         else:
             comment_values = {}
@@ -562,11 +715,11 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
                 widget_key = f"comment_{assignment.id}_{item.id}"
                 value = st.session_state.get(widget_key, "").strip()
                 comment_values[widget_key] = value
-                if not value:
+                if not value and item.required:
                     missing.append(item.text)
             if missing:
                 st.error(
-                    f"Please complete all {len(items)} qualitative responses before reviewing. "
+                    f"Please complete the {len(missing)} remaining required qualitative responses before reviewing. "
                     "Enter N/A or Not applicable when you have no additional feedback."
                 )
                 return
@@ -578,7 +731,11 @@ def render_evaluation(assignment: TeacherAssignment | None) -> None:
         st.rerun()
 
 
-def render_review(assignment: TeacherAssignment | None) -> None:
+def render_review(
+    assignment: TeacherAssignment | None,
+    block: QuestionBlock,
+    student,
+) -> None:
     if assignment is None:
         navigate("teachers")
         return
@@ -587,7 +744,7 @@ def render_review(assignment: TeacherAssignment | None) -> None:
     render_assignment_heading(assignment)
     st.markdown('<div class="section-heading">Review Your Responses</div>', unsafe_allow_html=True)
 
-    for title, items, section_type in evaluation_sections():
+    for title, items, section_type in evaluation_sections(block):
         with st.expander(title, expanded=title == "Teacher Performance"):
             for item in items:
                 prefix = "rating" if section_type == "rating" else "comment"
@@ -617,23 +774,46 @@ def render_review(assignment: TeacherAssignment | None) -> None:
         disabled=not confirmed,
     ):
         now = datetime.now()
-        st.session_state.submissions = [
-            submission
-            for submission in st.session_state.submissions
-            if not (
-                submission.student_id == DEMO_STUDENT.id
-                and submission.assignment_id == assignment.id
-                and submission.evaluation_period == DEMO_STUDENT.evaluation_period
+        if st.session_state.portal_mode == "supabase":
+            client = st.session_state.get("supabase_client")
+            if client is None:
+                st.error("Your session is unavailable. Sign in again before submitting.")
+                return
+            try:
+                responses = response_payload(
+                    block,
+                    assignment.id,
+                    st.session_state.answers,
+                    st.session_state.comments,
+                )
+                submit_evaluation(
+                    client,
+                    assignment.id,
+                    responses,
+                    client_version=CLIENT_VERSION,
+                )
+            except PortalSubmissionError as exc:
+                st.error(str(exc))
+                return
+            st.session_state.supabase_snapshot = None
+        else:
+            st.session_state.submissions = [
+                submission
+                for submission in st.session_state.submissions
+                if not (
+                    submission.student_id == student.id
+                    and submission.assignment_id == assignment.id
+                    and submission.evaluation_period == student.evaluation_period
+                )
+            ]
+            st.session_state.submissions.append(
+                SubmissionRecord(
+                    student_id=student.id,
+                    assignment_id=assignment.id,
+                    evaluation_period=student.evaluation_period,
+                    submitted_at=now,
+                )
             )
-        ]
-        st.session_state.submissions.append(
-            SubmissionRecord(
-                student_id=DEMO_STUDENT.id,
-                assignment_id=assignment.id,
-                evaluation_period=DEMO_STUDENT.evaluation_period,
-                submitted_at=now,
-            )
-        )
         st.session_state.last_submission = now
         navigate("submitted")
 
@@ -710,10 +890,46 @@ def render_help(student) -> None:
     render_bottom_nav("help")
 
 
+def render_portal_error(message: str) -> None:
+    render_header()
+    st.error(message)
+    st.caption("Contact the evaluation administrator if this account should have access.")
+
+
 def main() -> None:
-    initialize_state()
+    try:
+        settings = configured_supabase_settings()
+    except PortalConfigurationError as exc:
+        initialize_state("supabase")
+        inject_styles(st.session_state.portal_theme)
+        st.error(f"Supabase configuration error: {exc}")
+        return
+
+    mode = "supabase" if settings is not None else "demo"
+    initialize_state(mode)
     inject_styles(st.session_state.portal_theme)
-    student, assignments, submitted = portal_data()
+    if settings is None:
+        student, assignments, submitted, block = demo_portal_data()
+    else:
+        if not isinstance(st.session_state.get("supabase_session"), AuthSession):
+            render_login(settings)
+            return
+        try:
+            portal = authenticated_portal_data(settings)
+        except PortalAuthenticationError:
+            for key in AUTH_STATE_KEYS:
+                st.session_state.pop(key, None)
+            st.error("Your session has expired. Sign in again.")
+            render_login(settings)
+            return
+        except PortalDataError as exc:
+            render_portal_error(str(exc))
+            return
+        if portal is None:
+            render_login(settings)
+            return
+        student, assignments, submitted, block = portal
+
     assignment = current_assignment(assignments)
     page = st.session_state.portal_page
 
@@ -722,9 +938,9 @@ def main() -> None:
     elif page == "teachers":
         render_teachers(assignments, submitted)
     elif page == "evaluation":
-        render_evaluation(assignment)
+        render_evaluation(assignment, block)
     elif page == "review":
-        render_review(assignment)
+        render_review(assignment, block, student)
     elif page == "submitted":
         render_submitted(assignment, assignments, submitted)
     elif page == "history":

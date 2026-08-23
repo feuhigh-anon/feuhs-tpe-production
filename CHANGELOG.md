@@ -15,6 +15,31 @@ FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
 
 ## 2026-08-23
 
+### 14:37:14 - Implemented synthetic-alpha authentication and persistence boundary
+
+- Added the official `supabase-py` client as a runtime dependency.
+- Added `feval/supabase_portal.py` for publishable-key validation, password
+  sign-in, token refresh, logout, RLS-governed roster/question loading, and
+  atomic `submit_evaluation` RPC calls.
+- Refactored `student_app.py` to retain fictional demo mode when Supabase values
+  are absent and show the FEU student login boundary when both values are set.
+- Disabled general and email self-signup in the tracked local Supabase config to
+  mirror the administrator-provisioned account policy.
+- Bound authenticated evaluations to database question-item IDs and the active
+  immutable question-bank version instead of trusting in-code question text.
+- Added `scripts/provision_alpha.py` to create 2-10 fictional accounts and a
+  synthetic roster while keeping the secret key in a hidden terminal prompt and
+  generated passwords in owner-only ignored output.
+- Added six offline adapter tests covering secret-key rejection, the current
+  10/10/5/3 contract, future version count changes, complete 28-item payloads,
+  required comments, and omission of unanswered optional items.
+- Verification: Python compilation passed, all 26 tests passed, demo mode had no
+  browser errors, and the desktop/mobile login layouts rendered correctly. A
+  mobile button-contrast issue found during inspection was corrected.
+- Hosted status: no Auth settings, users, secrets, or database rows were changed
+  by this implementation step; live synthetic-alpha testing remains pending.
+- Commit: pending.
+
 ### 04:14:02 - Added persistent implementation log
 
 - Added this `CHANGELOG.md` so completed work remains traceable independently
