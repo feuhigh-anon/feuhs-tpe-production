@@ -22,7 +22,7 @@ The project is no longer planning Power Apps as the primary frontend. The adopte
 
 The student section will come from the authenticated database profile. Students will never select their section or teacher freely; they will see only active roster assignments for their school level, grade, strand, section, and evaluation period.
 
-The repository now includes an initial Supabase migration with indexed foreign keys, RLS policies, explicit student-to-teaching-assignment authorization, immutable versioned question banks, a unique submission constraint, and an atomic `submit_evaluation` RPC. A second migration publishes the current SHS and JHS instruments as version 1. On 2026-08-23, both migrations were applied successfully to the linked hosted Supabase project through CLI `2.115.0`; the Table Editor shows all 14 expected tables. The Streamlit authentication and persistence adapter is implemented in source but remains disabled in the public deployment until the project URL and publishable key are configured as Streamlit secrets.
+The repository now includes an initial Supabase migration with indexed foreign keys, RLS policies, explicit student-to-teaching-assignment authorization, immutable versioned question banks, a unique submission constraint, and an atomic `submit_evaluation` RPC. A second migration publishes the current SHS and JHS instruments as version 1. On 2026-08-23, both migrations were applied successfully to the linked hosted Supabase project through CLI `2.115.0`; the Table Editor shows all 14 expected tables. The public Streamlit deployment is connected using only the project URL and publishable key. Two synthetic accounts have passed the manual authenticated workflow; automated hosted policy verification is the next gate.
 
 ### 2026-08-23 implementation checkpoint
 
@@ -36,7 +36,10 @@ The repository now includes an initial Supabase migration with indexed foreign k
 - The frontend header, mobile evaluation container, selected-rating yellow state, light-mode review expander, and required qualitative validation have been corrected.
 - The student app now supports Supabase password login, token refresh, logout, RLS-filtered roster/question loading, and atomic RPC submission, while retaining secret-free demo mode.
 - `scripts/provision_alpha.py` can create 2-10 fictional alpha accounts and an isolated synthetic roster using a locally entered secret key; generated credentials remain under ignored `exports/`.
-- The local suite contains 26 passing tests. Five tests statically inspect the migration security/versioning contract and six test the Supabase adapter contract, but live authenticated RLS and concurrency tests are still pending.
+- Two fictional accounts and two synthetic assignments are provisioned, and the hosted login and normal student workflow passed manual testing.
+- `scripts/verify_live_security.py` performs alpha-only hosted checks for anonymous access, identity and roster isolation, response confidentiality, closed-period and duplicate rejection, logout, elevated-operator access, and cleanup. A signed-in `admin` profile remains a separate future test before an administrator interface is deployed.
+- The local suite contains 31 passing tests. Five tests statically inspect the migration security/versioning contract, six test the Supabase adapter contract, and five test the live verifier's offline safety behavior.
+- The hosted verifier passed 26 of 26 checks on 2026-08-23, including anonymous denial, identity and roster isolation, response confidentiality, submission enforcement, logout, elevated-operator visibility, and verified fixture cleanup. Sanitized evidence is retained in `docs/live_security_verification_20260823.md`.
 
 ## 2. Requirements Established in the Conversation
 
@@ -94,6 +97,7 @@ The fixed 50-30-20 policy was implemented as an operational default, not because
 | `supabase/migrations/202608230002_question_banks_v1.sql` | Published SHS/JHS version-1 question-bank seed with 56 items. |
 | `docs/supabase_setup.md` | Hosted project, migration, authentication, secret, and verification procedure. |
 | `scripts/provision_alpha.py` | Local administrator-only creation of fictional alpha accounts, roster assignments, and owner-only credential output. |
+| `scripts/verify_live_security.py` | Alpha-only destructive-but-reversible hosted RLS and submission-policy verification with hidden key prompts and cleanup. |
 
 ### `feval/` package
 
@@ -168,7 +172,7 @@ feval.reporting: AnalysisReport
         |
         +--> app.py: administrator dashboard and CSV exports
         +--> feval.pdf_report: confidential PDF report path
-        +--> deployed Supabase schema; Streamlit auth/persistence integration pending
+        +--> deployed Supabase schema and authenticated Streamlit student portal
 ```
 
 ### Ingestion behavior
@@ -554,10 +558,10 @@ Governance and reproducibility:
 8. Response-rate denominators are not currently available in the evaluation export and must come from roster/enrollment data.
 9. `feval/pdf_report.py` exists but is not wired into the admin interface.
 10. The PDF report contains a hardcoded 0.50/0.30/0.20 formula note even when the admin sliders use another weight vector; it should display the actual run-time weights.
-11. The deployed student app remains a synthetic, in-memory demonstration until its two publishable Supabase settings are added. Authentication and persistence are implemented in source, but password recovery, durable browser-refresh sessions, and live hosted verification remain incomplete.
+11. The deployed student app is connected to Supabase and has passed the manual synthetic workflow plus 26 automated hosted security checks. Password recovery and durable token-expiry/refresh testing remain incomplete.
 12. A public Streamlit endpoint is discoverable. No student profile, roster, teacher assignment, or evaluation content may be disclosed before successful application-level authentication in production.
-13. Supabase RLS, grants, immutable-question guards, and duplicate-submission constraints are deployed, but they have not yet been exercised with real authenticated student/admin roles. Static SQL inspection is not a substitute for live policy tests.
-14. Current tests are primarily unit-level and static migration-contract tests. Production readiness still requires fixture-based export tests, live database policy tests, concurrency/duplicate-submission tests, authentication tests, privacy tests, and repeated visual QA.
+13. The synthetic hosted verifier passed the deployed student RLS and submission-policy matrix. It used the elevated secret key for operator visibility and did not test a separately authenticated `admin` profile.
+14. Production readiness still requires fixture-based export tests, simultaneous duplicate-submission testing, token-expiry/refresh testing, administrator-role and privacy tests, load testing, and repeated visual QA.
 
 ## 10. Student Streamlit and Supabase Handoff
 
@@ -647,10 +651,10 @@ must not be used for ordinary student requests because they bypass RLS.
 
 ### Authentication and persistence next
 
-5. Configure hosted Supabase email/password authentication for a small synthetic alpha cohort; keep public signup and anonymous access disabled.
-6. Use `scripts/provision_alpha.py` to create two synthetic students and retain the generated credentials only in ignored local storage.
-7. Add only the project URL and publishable key to local Streamlit secrets and confirm that the login boundary replaces demo mode.
-8. Run live cross-section, duplicate-submission, raw-response-read, expired-session, closed-period, and administrator-access policy tests using synthetic accounts.
+5. Hosted Supabase email/password authentication is configured for a small synthetic alpha cohort; public signup and anonymous sign-in remain disabled.
+6. Two synthetic students were created with `scripts/provision_alpha.py`; their credentials remain only in ignored local storage.
+7. The project URL and publishable key are configured, and the hosted login and normal synthetic workflow passed manual testing.
+8. `scripts/verify_live_security.py` passed 26 of 26 hosted checks; sanitized evidence is retained under `docs/`.
 9. Add password recovery only after production SMTP and redirect URLs are configured and tested.
 10. Complete alpha testing before importing real student records or accepting real responses.
 
@@ -693,9 +697,9 @@ PYTHONPYCACHEPREFIX=/tmp/feval_pycache ./.venv/bin/python -m py_compile app.py s
 ./.venv/bin/streamlit run student_app.py
 ```
 
-The current suite contains 26 tests: 10 aggregation/scoring tests, 5
-student-portal tests, 6 Supabase adapter tests, and 5 static Supabase
-migration-contract tests. The suite
+The current suite contains 31 tests: 10 aggregation/scoring tests, 5
+student-portal tests, 6 Supabase adapter tests, 5 static Supabase
+migration-contract tests, and 5 offline live-verifier safety tests. The suite
 includes guards for synthetic public identities, required qualitative prompts,
 question-seed parity, RLS/revokes, immutable question versions, RPC grants, and
 database duplicate prevention. These SQL tests inspect migration text; live
@@ -717,12 +721,12 @@ No secrets are required for the fictional preview. When Supabase is connected, c
 ## 14. Handoff Prompt for the Next Conversation
 
 Use this repository and this document as the starting context. The hosted
-Supabase schema and Streamlit integration code are implemented; the immediate
-product task is configuring hosted Auth, provisioning two synthetic students,
-adding only the project URL and publishable key to Streamlit secrets, and running
-the live RLS/submission test matrix. Do not connect real students or responses
-until live role-separation, closed-period, session-expiry, and concurrency tests
-pass. In parallel, the highest-priority scoring correctness
+Supabase schema, hosted Auth, two synthetic students, Streamlit secrets, the
+manual authenticated workflow, and the 26-check hosted security verifier are
+complete. The immediate product task is preparing and validating the private
+student, teacher, section, subject, and assignment roster without importing it
+yet. Do not accept real responses until token-expiry, concurrency, administrator
+role, privacy, and load tests pass. In parallel, the highest-priority scoring correctness
 item remains SHS branch-column coalescing while preserving JHS behavior.
 Recalculate historical statistics after that fix. Do not present 50-30-20 as
 research-derived. Preserve the no-VADER requirement and keep qualitative

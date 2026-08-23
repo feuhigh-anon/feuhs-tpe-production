@@ -1,0 +1,95 @@
+import csv
+from contextlib import redirect_stdout
+import io
+import os
+from pathlib import Path
+import tempfile
+import unittest
+
+from scripts.verify_live_security import (
+    ALPHA_SECTION_CODE,
+    CheckReport,
+    load_alpha_credentials,
+    response_payload,
+)
+
+
+FIELDNAMES = (
+    "email",
+    "password",
+    "display_name",
+    "student_number",
+    "section",
+)
+
+
+class LiveSecurityTest(unittest.TestCase):
+    def write_credentials(self, directory: Path, *, section: str = ALPHA_SECTION_CODE) -> Path:
+        path = directory / "alpha_credentials.csv"
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
+            writer.writeheader()
+            for index in (1, 2):
+                writer.writerow(
+                    {
+                        "email": f"alpha.student{index:02d}@example.invalid",
+                        "password": f"Synthetic-{index}",
+                        "display_name": f"Alpha Student {index:02d}",
+                        "student_number": f"ALPHA-{index:04d}",
+                        "section": section,
+                    }
+                )
+        os.chmod(path, 0o600)
+        return path
+
+    def test_owner_only_alpha_credentials_are_loaded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            credentials = load_alpha_credentials(
+                self.write_credentials(Path(directory))
+            )
+
+        self.assertEqual(len(credentials), 2)
+        self.assertTrue(credentials[0].email.endswith("@example.invalid"))
+        self.assertEqual(credentials[1].section, ALPHA_SECTION_CODE)
+
+    def test_non_alpha_section_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_credentials(Path(directory), section="11STEM-REAL")
+            with self.assertRaises(SystemExit):
+                load_alpha_credentials(path)
+
+    def test_credentials_accessible_to_other_users_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write_credentials(Path(directory))
+            os.chmod(path, 0o644)
+            with self.assertRaises(SystemExit):
+                load_alpha_credentials(path)
+
+    def test_response_payload_supports_likert_and_required_text(self):
+        payload = response_payload(
+            [
+                {"id": 10, "response_type": "likert_5"},
+                {"id": 11, "response_type": "text"},
+            ]
+        )
+
+        self.assertEqual(
+            payload,
+            [
+                {"question_item_id": 10, "rating_value": 4, "text_value": None},
+                {"question_item_id": 11, "rating_value": None, "text_value": "N/A"},
+            ],
+        )
+
+    def test_report_counts_passes_and_failures(self):
+        report = CheckReport()
+        with redirect_stdout(io.StringIO()):
+            report.record("allowed", True, "ok")
+            report.record("denied", False, "unexpected")
+
+        self.assertEqual(report.passed, 1)
+        self.assertEqual(report.failed, 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

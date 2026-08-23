@@ -9,8 +9,8 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 - All source-controlled identities are synthetic. Raw exports, rosters, credentials, and production responses are excluded from Git.
 - The hosted Supabase project is created and linked through Supabase CLI. Both source-controlled migrations have been applied, creating 14 tables, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC.
 - The published SHS and JHS version-1 instruments contain 28 required items each: 25 Likert items and 3 qualitative prompts. The hosted database therefore starts with 2 question banks and 56 question items.
-- The Supabase Auth, RLS-governed roster/question reads, session refresh, logout, and atomic submission integration are implemented in source. They activate only when both Streamlit Supabase secrets are present.
-- The current public deployment has no Supabase secrets and therefore remains a synthetic in-memory preview. Live authentication and policy tests are still required before real evaluations.
+- The public deployment is connected with the Supabase project URL and publishable key. Its FEU-branded login, authenticated roster loading, evaluation submission, duplicate filtering, logout, and mobile workflow have passed manual testing with two synthetic students.
+- Automated hosted RLS and submission-policy verification passed all 26 checks on 2026-08-23, including cleanup. The sanitized record is in `docs/live_security_verification_20260823.md`.
 - Do not use the current deployment for real students or real evaluation responses.
 
 For architecture decisions, statistical cautions, deployment status, and the
@@ -141,7 +141,9 @@ feval/
   supabase_portal.py
 scripts/
   provision_alpha.py
+  verify_live_security.py
 tests/
+  test_live_security.py
   test_pipeline.py
   test_student_portal.py
   test_supabase_portal.py
@@ -152,6 +154,7 @@ supabase/
     202608230001_initial_schema.sql
     202608230002_question_banks_v1.sql
 docs/
+  live_security_verification_20260823.md
   supabase_setup.md
 ```
 
@@ -189,11 +192,13 @@ flowchart LR
 | `feval/student_demo_data.py` | Public-safe fictional records for the deployed preview. | No external data. | Synthetic profile, assignments, and initial submission history. |
 | `feval/supabase_portal.py` | Authenticated student data adapter. | Project URL, publishable key, student session, and RLS-filtered tables. | Refreshed session, database questionnaire, roster snapshot, and RPC submission. |
 | `scripts/provision_alpha.py` | Administrator-only synthetic alpha provisioner. | Project URL and a secret key entered at a hidden terminal prompt. | Fictional accounts/roster and an ignored owner-only credentials CSV. |
+| `scripts/verify_live_security.py` | Destructive-but-reversible hosted security verifier restricted to the synthetic alpha fixture. | Project URL, owner-only alpha credentials, and hidden publishable/secret key prompts. | Pass/fail evidence for anonymous access, identity/roster isolation, RLS, submission rules, logout, and elevated-operator visibility; temporary rows are removed. |
 | `feval/__init__.py` | Small public package surface. | Package imports. | Exposes `DEFAULT_QUESTION_BLOCKS` and `get_question_block`. |
 | `tests/test_pipeline.py` | End-to-end and behavior tests. | Demo/generated data. | Assertions for ingestion, block structure, scoring output, NLP fields, and class-load pooling. |
 | `tests/test_student_portal.py` | Portal authorization tests. | Synthetic student and assignment records. | Assertions for section scoping, submitted filtering, and stable keys. |
 | `tests/test_supabase_portal.py` | Auth adapter contract tests. | Synthetic database question rows and response dictionaries. | Assertions for secret-key rejection, questionnaire structure, and submission payloads. |
 | `tests/test_supabase_schema.py` | Static database-contract tests. | Source-controlled SQL migrations and Python question banks. | Assertions for RLS/revokes, versioning, duplicate prevention, RPC grants, and seeded-question parity. |
+| `tests/test_live_security.py` | Offline safety tests for the hosted verifier. | Temporary synthetic credential files and question rows. | Assertions for alpha-only guards, file permissions, response payloads, and result accounting. |
 
 ### `student_app.py`
 

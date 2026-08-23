@@ -15,6 +15,44 @@ FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
 
 ## 2026-08-23
 
+### 20:17:04 - Passed hosted synthetic security verification
+
+- Executed `scripts/verify_live_security.py` against the hosted synthetic alpha
+  environment using two fictional student accounts.
+- Passed all 26 checks covering anonymous denial, student identity and roster
+  isolation, cross-assignment metadata, direct-write rejection, closed-period
+  enforcement, authorized atomic submission, duplicate prevention, response
+  confidentiality, logout, and elevated-operator visibility.
+- Confirmed that all 28 temporary responses and their submission/audit fixture
+  were removed and the alpha evaluation period was restored.
+- Added `docs/live_security_verification_20260823.md` as a sanitized evidence
+  record containing no keys, passwords, identifiers, or response content.
+- Remaining production security work includes simultaneous-request concurrency,
+  token expiry/refresh, signed-in administrator-role, privacy, and load tests.
+- Commit: pending.
+
+### 20:05:46 - Added automated hosted security verification
+
+- Added `scripts/verify_live_security.py`, an alpha-only live verifier for
+  unauthenticated access, student identity and roster isolation, raw-response
+  confidentiality, direct-write rejection, closed-period enforcement, atomic
+  submission, duplicate prevention, audit visibility, and logout.
+- Restricted execution to owner-only credentials for `example.invalid`,
+  `ALPHA-*`, and `11STEM-ALPHA` records. Publishable and secret keys are accepted
+  only through hidden prompts and are never persisted.
+- Added reversible temporary fixture creation and defensive cleanup that
+  restores the evaluation period and removes test responses, audit events,
+  assignments, subject, and teacher even after a failed check.
+- Added five offline tests for the verifier safety guard, credential-file
+  permissions, response payload, and result accounting.
+- Updated the README, handoff summary, and Supabase setup guide to reflect the
+  connected hosted login, successful manual synthetic workflow, and automated
+  live-verification procedure.
+- Verification at implementation time: the verifier compiled, its help command
+  loaded, all 31 local tests passed, and `git diff --check` passed. The later
+  20:17:04 entry records the successful hosted execution.
+- Commit: pending.
+
 ### 19:34:57 - Branded and verified the authenticated student login
 
 - Rebuilt the Supabase login screen with a stronger FEU green/yellow identity,

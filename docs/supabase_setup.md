@@ -11,9 +11,12 @@ The repository contains two ordered migrations:
    and JHS version 1 questionnaires.
 
 Both migrations were applied to the hosted project on 2026-08-23. They contain
-no student roster, password, credential, or real evaluation response. The
-Streamlit authentication/data adapter and a synthetic alpha provisioner are now
-implemented in source, but authenticated live-policy testing is still pending.
+no real student roster, password, credential, or evaluation response. The
+Streamlit authentication/data adapter, synthetic alpha provisioner, and
+alpha-only live security verifier are implemented. The hosted login and normal
+student workflow have passed manual testing with synthetic accounts. The
+automated hosted verifier subsequently passed 26 of 26 checks with cleanup on
+2026-08-23. See `live_security_verification_20260823.md` for sanitized evidence.
 
 ## Create the Hosted Project
 
@@ -121,6 +124,34 @@ Generated passwords are written to `exports/alpha_credentials_<timestamp>.csv`.
 The directory is ignored by Git and the file is created with owner-only
 permissions. Delete the users and credential file after testing.
 
+## Verify Hosted Security With Synthetic Accounts
+
+Run the verifier from the repository root after the two synthetic students can
+sign in successfully:
+
+```bash
+.venv/bin/python scripts/verify_live_security.py \
+  --url https://YOUR_PROJECT_REF.supabase.co \
+  --credentials exports/alpha_credentials_YYYYMMDD_HHMMSS.csv
+```
+
+Paste the current `sb_publishable_...` key at the first hidden prompt and the
+current `sb_secret_...` key at the second. Hidden input intentionally displays
+no characters while pasting. The script prints only key lengths and one-way
+fingerprints; it never prints or saves either key.
+
+The verifier refuses credentials outside the `example.invalid`, `ALPHA-*`, and
+`11STEM-ALPHA` fixture. It creates a temporary assignment authorized only for
+the second synthetic student, checks unauthenticated access, cross-student and
+cross-roster reads, raw-response isolation, direct-write rejection, closed
+period rejection, successful atomic submission, duplicate prevention, audit
+visibility through the elevated operator key, and logout behavior. It restores
+the period, removes temporary
+rows in a `finally` cleanup path even when a check fails.
+
+Do not run this utility against real students. Preserve the terminal pass/fail
+output as alpha-test evidence, but do not preserve or share the entered keys.
+
 ## Enable Authenticated Streamlit Mode
 
 For local testing, create the ignored `.streamlit/secrets.toml` file:
@@ -183,7 +214,8 @@ instrument revision and also requires a new version plus statistical review.
    them.
 6. Submit once, then confirm a duplicate submission is rejected.
 7. Confirm students cannot select raw rows from `evaluation_responses`.
-8. Confirm an administrator can read the reporting data.
+8. Confirm the elevated operator can read the reporting data. Test a separately
+   authenticated `admin` profile before deploying an administrator interface.
 9. Export and retain the applied migration identifiers and test evidence.
 
 Only after these checks pass should approved roster data be imported.
