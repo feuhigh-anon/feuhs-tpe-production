@@ -254,14 +254,79 @@ def inject_styles(theme: str) -> None:
         .st-key-portal_header .stButton button:hover {{ color: var(--gold); background: transparent; }}
         .header-title {{ color: #FFFFFF; font-size: .94rem; font-weight: 700; line-height: 1.15; }}
         .header-title span {{ display: block; font-size: .82rem; font-weight: 500; opacity: .92; }}
-        .login-brand {{
-            width: calc(100% + 2rem); margin: 0 -1rem 2rem; padding: 2.25rem 1.5rem 2rem;
-            background: var(--deep); border-bottom: 4px solid var(--gold); color: #FFFFFF;
+        .st-key-login_page {{ position: relative; min-height: calc(100vh - 5.75rem); }}
+        .st-key-login_theme {{
+            position: absolute; top: 1rem; right: .1rem; z-index: 20; width: 2.7rem;
         }}
-        .login-brand strong {{ display: block; color: #FFFFFF; font-size: 1.45rem; line-height: 1.2; }}
-        .login-brand span {{ display: block; color: #FFFFFF; margin-top: .35rem; opacity: .9; }}
-        .login-heading {{ color: var(--primary); font-size: 1.2rem; font-weight: 800; margin-bottom: .25rem; }}
-        .login-copy {{ color: var(--muted); font-size: .86rem; margin-bottom: 1.2rem; }}
+        .st-key-login_theme .stButton button {{
+            width: 2.55rem; min-height: 2.55rem; padding: 0; border: 1px solid rgba(255,255,255,.48);
+            border-radius: 6px; background: rgba(0,0,0,.12); color: #FFFFFF; box-shadow: none;
+        }}
+        .st-key-login_theme .stButton button:hover {{
+            background: var(--gold); border-color: var(--gold); color: #142019;
+        }}
+        .login-hero {{
+            position: relative; overflow: hidden; width: calc(100% + 2rem); min-height: 13.5rem;
+            margin: 0 -1rem 1.65rem; padding: 2.1rem 1.45rem 1.45rem;
+            background: var(--deep); border-bottom: 5px solid var(--gold); color: #FFFFFF;
+        }}
+        .login-hero::after {{
+            content: ""; position: absolute; right: -2.1rem; bottom: -3.2rem;
+            width: 8.5rem; height: 8.5rem; border: 1px solid rgba(255,255,255,.16);
+            transform: rotate(18deg);
+        }}
+        .login-brand-row {{ display: flex; align-items: center; gap: 1rem; max-width: 20rem; }}
+        .login-monogram {{
+            width: 4.35rem; height: 4.35rem; min-width: 4.35rem; display: grid; place-items: center;
+            align-content: center; border: 2px solid var(--gold); background: rgba(0,0,0,.12);
+            color: #FFFFFF; line-height: 1; box-shadow: .35rem .35rem 0 rgba(255,199,44,.22);
+        }}
+        .login-monogram span {{ color: #FFFFFF; font-size: 1.05rem; font-weight: 850; }}
+        .login-monogram b {{ color: var(--gold); font-size: .72rem; margin-top: .25rem; }}
+        .login-brand-copy {{ min-width: 0; }}
+        .login-kicker {{
+            display: block; color: var(--gold); font-size: .67rem; font-weight: 800;
+            line-height: 1.2; margin-bottom: .4rem; letter-spacing: 0;
+        }}
+        .login-brand-copy strong {{
+            display: block; color: #FFFFFF; font-size: 1.55rem; line-height: 1.08; font-weight: 800;
+        }}
+        .login-brand-copy em {{
+            display: block; color: rgba(255,255,255,.82); font-size: .82rem;
+            font-style: normal; margin-top: .42rem;
+        }}
+        .login-hero-rule {{ width: 3.5rem; height: 3px; background: var(--gold); margin: 1.35rem 0 .7rem; }}
+        .login-portal-label {{ color: rgba(255,255,255,.88); font-size: .76rem; font-weight: 650; }}
+        .login-intro {{ margin: 0 .1rem 1rem; }}
+        .login-eyebrow {{ color: var(--primary); font-size: .68rem; font-weight: 850; margin-bottom: .35rem; }}
+        .login-heading {{ color: var(--text); font-size: 1.35rem; font-weight: 820; line-height: 1.2; }}
+        .login-copy {{ color: var(--muted); font-size: .84rem; line-height: 1.45; margin-top: .35rem; }}
+        .st-key-login_page [data-testid="stForm"] {{
+            padding: 1.05rem 1rem 1rem; border: 1px solid var(--border);
+            border-top: 3px solid var(--gold); border-radius: 6px;
+            background: var(--surface-raised); box-shadow: 0 5px 18px var(--shadow);
+        }}
+        .st-key-login_page [data-testid="stForm"] [data-testid="stWidgetLabel"] p {{
+            color: var(--text); font-size: .78rem; font-weight: 750;
+        }}
+        .st-key-login_page [data-testid="stTextInput"] input {{
+            min-height: 2.75rem; border-color: var(--border); border-radius: 5px;
+        }}
+        .st-key-login_page [data-testid="stTextInput"] input:focus {{
+            border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary);
+        }}
+        .st-key-login_page .stFormSubmitButton {{ margin-top: .15rem; }}
+        .login-assurance {{
+            display: flex; align-items: center; gap: .75rem; margin: 1rem .1rem 0;
+            padding: .8rem 0; border-top: 1px solid var(--border);
+        }}
+        .login-assurance-mark {{
+            width: 2.15rem; height: 2.15rem; min-width: 2.15rem; display: grid; place-items: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--soft-green);
+            color: var(--primary); font-size: .63rem; font-weight: 850;
+        }}
+        .login-assurance strong {{ display: block; color: var(--text); font-size: .76rem; }}
+        .login-assurance span {{ display: block; color: var(--muted); font-size: .7rem; margin-top: .08rem; }}
         [data-testid="stVerticalBlockBorderWrapper"] {{
             border: 1px solid var(--border) !important;
             border-radius: 6px !important;
@@ -399,6 +464,8 @@ def inject_styles(theme: str) -> None:
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
             .assignment-subject {{ font-size: .96rem; }}
             .subject-mark {{ width: 2.8rem; height: 2.8rem; min-width: 2.8rem; }}
+            .login-hero {{ min-height: 12.8rem; padding-top: 1.85rem; }}
+            .login-brand-copy strong {{ font-size: 1.42rem; }}
         }}
         </style>
         """,
@@ -407,25 +474,62 @@ def inject_styles(theme: str) -> None:
 
 
 def render_login(settings: SupabaseSettings) -> None:
-    st.markdown(
-        """
-        <div class="login-brand">
-          <strong>FEU High School</strong>
-          <span>Faculty Evaluation</span>
-        </div>
-        <div class="login-heading">Student Sign In</div>
-        <div class="login-copy">Use the evaluation account issued to you.</div>
-        """,
-        unsafe_allow_html=True,
-    )
-    with st.form("student_login", clear_on_submit=False):
-        email = st.text_input("Email", autocomplete="email")
-        password = st.text_input("Password", type="password", autocomplete="current-password")
-        submitted = st.form_submit_button(
-            "Sign In",
-            icon=":material/login:",
-            type="primary",
-            use_container_width=True,
+    with st.container(key="login_page"):
+        with st.container(key="login_theme"):
+            dark = st.session_state.portal_theme == "dark"
+            icon = ":material/light_mode:" if dark else ":material/dark_mode:"
+            if st.button("", icon=icon, key="login_theme_toggle", help="Switch color theme"):
+                st.session_state.portal_theme = "light" if dark else "dark"
+                st.rerun()
+
+        st.markdown(
+            """
+            <div class="login-hero">
+              <div class="login-brand-row">
+                <div class="login-monogram"><span>FEU</span><b>HS</b></div>
+                <div class="login-brand-copy">
+                  <span class="login-kicker">FEU HIGH SCHOOL</span>
+                  <strong>Faculty Evaluation</strong>
+                  <em>Student Portal</em>
+                </div>
+              </div>
+              <div class="login-hero-rule"></div>
+              <div class="login-portal-label">Confidential evaluation access</div>
+            </div>
+            <div class="login-intro">
+              <div class="login-eyebrow">STUDENT ACCESS</div>
+              <div class="login-heading">Welcome back</div>
+              <div class="login-copy">Sign in with the evaluation account issued by your school.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        with st.form("student_login", clear_on_submit=False):
+            email = st.text_input(
+                "Email",
+                placeholder="Enter your evaluation email",
+                autocomplete="email",
+            )
+            password = st.text_input(
+                "Password",
+                type="password",
+                placeholder="Enter your password",
+                autocomplete="current-password",
+            )
+            submitted = st.form_submit_button(
+                "Sign In",
+                icon=":material/login:",
+                type="primary",
+                use_container_width=True,
+            )
+        st.markdown(
+            """
+            <div class="login-assurance">
+              <div class="login-assurance-mark">ID</div>
+              <div><strong>Authorized access</strong><span>Only school-issued evaluation accounts can sign in.</span></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
     if submitted:
         if not email.strip() or not password:

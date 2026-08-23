@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import csv
 import getpass
+import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 from supabase import Client, create_client
+from supabase.lib.client_options import SyncClientOptions
+from supabase_auth.errors import AuthApiError
 
 
 SECTION = {
@@ -83,12 +86,32 @@ def main() -> None:
     secret_key = getpass.getpass("Supabase secret key (input hidden): ").strip()
     if not secret_key.startswith("sb_secret_"):
         raise SystemExit("A current sb_secret_ key is required for administrator provisioning.")
+    fingerprint = hashlib.sha256(secret_key.encode("utf-8")).hexdigest()[:8]
+    print(
+        f"Secret key received ({len(secret_key)} characters; fingerprint {fingerprint})."
+    )
 
-    client = create_client(url, secret_key)
+    client = create_client(
+        url,
+        secret_key,
+        options=SyncClientOptions(
+            auto_refresh_token=False,
+            persist_session=False,
+        ),
+    )
     emails = [f"alpha.student{index:02d}@example.invalid" for index in range(1, args.students + 1)]
+    try:
+        users = client.auth.admin.list_users(page=1, per_page=1000)
+    except AuthApiError as exc:
+        if "invalid api key" in str(exc).casefold():
+            raise SystemExit(
+                "Supabase rejected the secret key. Copy the complete active sb_secret_ key "
+                "from this project's Settings > API Keys page and try again."
+            ) from None
+        raise SystemExit(f"Supabase administrator authentication failed: {exc}") from None
     existing = {
         str(user.email).casefold()
-        for user in client.auth.admin.list_users(page=1, per_page=1000)
+        for user in users
         if user.email
     }
     duplicates = sorted(email for email in emails if email.casefold() in existing)

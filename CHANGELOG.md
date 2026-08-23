@@ -30,6 +30,10 @@ FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
 - Added `scripts/provision_alpha.py` to create 2-10 fictional accounts and a
   synthetic roster while keeping the secret key in a hidden terminal prompt and
   generated passwords in owner-only ignored output.
+- Configured the provisioning client for non-persistent server-side Auth and
+  added a concise diagnostic when Supabase rejects an invalid administrator key.
+  Hidden key input now confirms receipt using only its length and a short
+  one-way fingerprint.
 - Added six offline adapter tests covering secret-key rejection, the current
   10/10/5/3 contract, future version count changes, complete 28-item payloads,
   required comments, and omission of unanswered optional items.
