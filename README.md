@@ -124,6 +124,9 @@ The repository has two Streamlit entry points, while the `feval` package holds t
 ```text
 app.py
 student_app.py
+assets/
+  feu-architecture-line-art.png
+  feu-high-school-logo.png
 feval/
   __init__.py
   models.py

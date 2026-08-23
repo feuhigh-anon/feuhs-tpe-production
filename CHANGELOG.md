@@ -15,6 +15,25 @@ FEU High School Faculty Evaluation Platform. Times use Asia/Manila (UTC+08:00).
 
 ## 2026-08-23
 
+### 19:34:57 - Branded and verified the authenticated student login
+
+- Rebuilt the Supabase login screen with a stronger FEU green/yellow identity,
+  compact access form, visible light/dark mode control, and mobile-first layout.
+- Replaced the temporary text monogram with the supplied official FEU High
+  School seal.
+- Extracted the recurring FEU building line drawing from the supplied Week 1
+  educational-research PDF using a multi-page median composite, removing slide
+  text while preserving the architectural artwork as a transparent local PNG.
+- Embedded both local assets in the Streamlit banner without an external image
+  host or changes to the authentication flow.
+- Verified the light and dark screens at 390 x 844 and desktop width: both
+  assets loaded at their expected dimensions, no horizontal overflow appeared,
+  empty-form validation remained functional, and browser logs contained no
+  errors or warnings.
+- Hosted alpha status: two fictional student accounts and two synthetic teaching
+  assignments were provisioned successfully; real student data remains excluded.
+- Commit: pending.
+
 ### 14:37:14 - Implemented synthetic-alpha authentication and persistence boundary
 
 - Added the official `supabase-py` client as a runtime dependency.

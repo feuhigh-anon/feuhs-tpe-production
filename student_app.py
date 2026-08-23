@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import html
 import os
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 
@@ -56,6 +58,14 @@ AUTH_STATE_KEYS = (
     "supabase_snapshot",
     "supabase_client",
 )
+ASSET_DIRECTORY = Path(__file__).resolve().parent / "assets"
+
+
+@st.cache_data(show_spinner=False)
+def asset_data_uri(filename: str) -> str:
+    path = ASSET_DIRECTORY / filename
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def configured_supabase_settings() -> SupabaseSettings | None:
@@ -270,19 +280,18 @@ def inject_styles(theme: str) -> None:
             margin: 0 -1rem 1.65rem; padding: 2.1rem 1.45rem 1.45rem;
             background: var(--deep); border-bottom: 5px solid var(--gold); color: #FFFFFF;
         }}
-        .login-hero::after {{
-            content: ""; position: absolute; right: -2.1rem; bottom: -3.2rem;
-            width: 8.5rem; height: 8.5rem; border: 1px solid rgba(255,255,255,.16);
-            transform: rotate(18deg);
+        .login-architecture {{
+            position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%;
+            object-fit: cover; object-position: center bottom; opacity: .2; pointer-events: none;
         }}
-        .login-brand-row {{ display: flex; align-items: center; gap: 1rem; max-width: 20rem; }}
-        .login-monogram {{
-            width: 4.35rem; height: 4.35rem; min-width: 4.35rem; display: grid; place-items: center;
-            align-content: center; border: 2px solid var(--gold); background: rgba(0,0,0,.12);
-            color: #FFFFFF; line-height: 1; box-shadow: .35rem .35rem 0 rgba(255,199,44,.22);
+        .login-brand-row {{
+            position: relative; z-index: 2; display: flex; align-items: center;
+            gap: 1rem; max-width: 20rem;
         }}
-        .login-monogram span {{ color: #FFFFFF; font-size: 1.05rem; font-weight: 850; }}
-        .login-monogram b {{ color: var(--gold); font-size: .72rem; margin-top: .25rem; }}
+        .login-logo {{
+            width: 4.6rem; height: 4.6rem; min-width: 4.6rem; object-fit: contain;
+            filter: drop-shadow(0 .2rem .25rem rgba(0,0,0,.22));
+        }}
         .login-brand-copy {{ min-width: 0; }}
         .login-kicker {{
             display: block; color: var(--gold); font-size: .67rem; font-weight: 800;
@@ -295,8 +304,14 @@ def inject_styles(theme: str) -> None:
             display: block; color: rgba(255,255,255,.82); font-size: .82rem;
             font-style: normal; margin-top: .42rem;
         }}
-        .login-hero-rule {{ width: 3.5rem; height: 3px; background: var(--gold); margin: 1.35rem 0 .7rem; }}
-        .login-portal-label {{ color: rgba(255,255,255,.88); font-size: .76rem; font-weight: 650; }}
+        .login-hero-rule {{
+            position: relative; z-index: 2; width: 3.5rem; height: 3px;
+            background: var(--gold); margin: 1.35rem 0 .7rem;
+        }}
+        .login-portal-label {{
+            position: relative; z-index: 2; color: rgba(255,255,255,.92);
+            font-size: .76rem; font-weight: 650;
+        }}
         .login-intro {{ margin: 0 .1rem 1rem; }}
         .login-eyebrow {{ color: var(--primary); font-size: .68rem; font-weight: 850; margin-bottom: .35rem; }}
         .login-heading {{ color: var(--text); font-size: 1.35rem; font-weight: 820; line-height: 1.2; }}
@@ -474,6 +489,8 @@ def inject_styles(theme: str) -> None:
 
 
 def render_login(settings: SupabaseSettings) -> None:
+    logo_uri = asset_data_uri("feu-high-school-logo.png")
+    architecture_uri = asset_data_uri("feu-architecture-line-art.png")
     with st.container(key="login_page"):
         with st.container(key="login_theme"):
             dark = st.session_state.portal_theme == "dark"
@@ -483,10 +500,11 @@ def render_login(settings: SupabaseSettings) -> None:
                 st.rerun()
 
         st.markdown(
-            """
+            f"""
             <div class="login-hero">
+              <img class="login-architecture" src="{architecture_uri}" alt="">
               <div class="login-brand-row">
-                <div class="login-monogram"><span>FEU</span><b>HS</b></div>
+                <img class="login-logo" src="{logo_uri}" alt="FEU High School logo">
                 <div class="login-brand-copy">
                   <span class="login-kicker">FEU HIGH SCHOOL</span>
                   <strong>Faculty Evaluation</strong>
