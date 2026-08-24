@@ -14,6 +14,7 @@ from scripts.verify_live_security import (
     response_payload,
 )
 from scripts.provision_alpha import FIXTURES
+from scripts.provision_mixed_alpha import COHORTS, planned_accounts
 
 
 FIELDNAMES = (
@@ -100,6 +101,21 @@ class LiveSecurityTest(unittest.TestCase):
                 item["subject"]["code"] for item in jhs["assignments"]
             )
         )
+
+    def test_mixed_alpha_cohort_covers_jhs_grade_11_and_grade_12(self):
+        accounts = planned_accounts()
+
+        self.assertEqual(len(accounts), 10)
+        self.assertEqual(
+            {cohort["key"]: cohort["student_count"] for cohort in COHORTS},
+            {"JHS": 4, "G11": 3, "G12": 3},
+        )
+        self.assertEqual(
+            {(row["section"]["school_level"], row["section"]["grade_level"]) for row in accounts},
+            {("JHS", 7), ("SHS", 11), ("SHS", 12)},
+        )
+        self.assertEqual(sum(len(cohort["assignments"]) for cohort in COHORTS), 9)
+        self.assertTrue(all(row["email"].endswith("@example.invalid") for row in accounts))
 
     def test_credentials_accessible_to_other_users_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -90,6 +90,30 @@ supabase db push --dry-run
 supabase db push
 ```
 
+Provision the fixed ten-account mixed alpha cohort after connecting through a
+network that can reach Supabase:
+
+```bash
+.venv/bin/python scripts/provision_mixed_alpha.py \
+  --url https://YOUR_PROJECT_REF.supabase.co
+```
+
+The command creates four JHS, three Grade 11, and three Grade 12 fictional
+accounts. Each account receives three synthetic teacher evaluations. The
+credentials CSV is owner-only and remains under Git-ignored `exports/`.
+
+After students submit, export an administrator-readable alpha review bundle:
+
+```bash
+.venv/bin/python scripts/export_alpha_submissions.py \
+  --url https://YOUR_PROJECT_REF.supabase.co
+```
+
+This export is deliberately restricted to `ALPHA-*` periods and requires the
+secret key through a hidden prompt. It writes a submission summary and a
+question-level response CSV under Git-ignored `exports/`. Never place the
+secret key in Streamlit Community Cloud or in a command-line argument.
+
 Do not make production schema changes directly in the Table Editor. Add a new
 timestamped migration, review it, commit it, and deploy it through the CLI.
 Local CLI state under `supabase/.temp/` is ignored by Git.
@@ -158,8 +182,11 @@ feval/
   supabase_portal.py
 scripts/
   provision_alpha.py
+  provision_mixed_alpha.py
+  export_alpha_submissions.py
   verify_live_security.py
 tests/
+  test_alpha_submission_export.py
   test_live_security.py
   test_pipeline.py
   test_student_portal.py
@@ -210,6 +237,8 @@ flowchart LR
 | `feval/student_demo_data.py` | Public-safe fictional records for the deployed preview. | No external data. | Synthetic profile, assignments, and initial submission history. |
 | `feval/supabase_portal.py` | Authenticated student data adapter. | Project URL, publishable key, student session, and RLS-filtered tables. | Refreshed session, database questionnaire, roster snapshot, and RPC submission. |
 | `scripts/provision_alpha.py` | Administrator-only SHS/JHS synthetic alpha provisioner. | School level, project URL, and a secret key entered at a hidden terminal prompt. | Level-specific fictional accounts/roster and an ignored owner-only credentials CSV. |
+| `scripts/provision_mixed_alpha.py` | Administrator-only mixed-cohort alpha provisioner. | Project URL and a secret key entered at a hidden terminal prompt. | Ten fictional accounts split across JHS, Grade 11, and Grade 12, nine synthetic teaching assignments, and an ignored owner-only credentials CSV. |
+| `scripts/export_alpha_submissions.py` | Safety-limited operator export for accepted alpha submissions. | Project URL, an `ALPHA-*` period code, and a hidden secret key. | Owner-only submission-summary and question-level response CSV files under ignored `exports/`. |
 | `scripts/verify_live_security.py` | Destructive-but-reversible hosted security verifier restricted to the selected SHS or JHS synthetic fixture. | School level, project URL, owner-only alpha credentials, and hidden publishable/secret key prompts. | Pass/fail evidence for anonymous access, identity/roster isolation, RLS, submission rules, logout, and elevated-operator visibility; temporary rows are removed. |
 | `scripts/prepare_roster_import.py` | Offline private-workbook validator and staging-bundle preparer. | Reviewed roster workbook, batch code, and evaluation-period code. | Owner-only validation report and, only after a clean pass, normalized staging CSVs under ignored `exports/`. |
 | `feval/__init__.py` | Small public package surface. | Package imports. | Exposes `DEFAULT_QUESTION_BLOCKS` and `get_question_block`. |
@@ -218,6 +247,7 @@ flowchart LR
 | `tests/test_supabase_portal.py` | Auth adapter contract tests. | Synthetic database question rows and response dictionaries. | Assertions for secret-key rejection, questionnaire structure, and submission payloads. |
 | `tests/test_supabase_schema.py` | Static database-contract tests. | Source-controlled SQL migrations and Python question banks. | Assertions for RLS/revokes, versioning, duplicate prevention, RPC grants, and seeded-question parity. |
 | `tests/test_live_security.py` | Offline safety tests for the hosted verifier. | Temporary synthetic credential files and question rows. | Assertions for alpha-only guards, file permissions, response payloads, and result accounting. |
+| `tests/test_alpha_submission_export.py` | Operator-export contract tests. | Export field definitions. | Assertions that roster, teacher, rating, and qualitative review fields remain present. |
 
 ### `student_app.py`
 

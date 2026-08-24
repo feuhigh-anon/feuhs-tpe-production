@@ -15,6 +15,23 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 
 ## 2026-08-24
 
+### 12:42:52 - Added mixed-cohort alpha provisioning and private response review
+
+- Added a fixed ten-account synthetic cohort: four Grade 7 JHS students, three
+  Grade 11 STEM students, and three Grade 12 STEM students.
+- Added nine clearly synthetic teaching assignments spanning current-year JHS
+  and SHS subject examples; every alpha account receives three evaluations.
+- Added an alpha-only operator export that joins accepted submission metadata,
+  roster context, teachers, subjects, questions, ratings, and qualitative text
+  into owner-only CSV files under ignored `exports/`.
+- Kept all administrator operations behind a hidden `sb_secret_` prompt and
+  prevented the review exporter from accepting a non-`ALPHA-*` period.
+- Corrected UCSP reconciliation so only long-term substitutes are assigned for
+  evaluation; daily and recurring substitutes are documented as excluded.
+- Verification: 46 unit tests passed, command help smoke tests passed, and Git
+  whitespace validation passed.
+- Commit: pending.
+
 ### 07:53:53 - Reconciled administrative schedules and revised login guidance
 
 - Reviewed the private 17-sheet SY 2026-2027 teacher-schedule workbook and
