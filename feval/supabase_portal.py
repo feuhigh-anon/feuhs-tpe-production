@@ -181,7 +181,7 @@ def load_portal_snapshot(
         int(row["id"]): row
         for row in _rows(
             client.table("subjects")
-            .select("id,name,is_active")
+            .select("id,code,name,is_active")
             .in_("id", subject_ids)
             .execute()
         )
@@ -209,6 +209,7 @@ def load_portal_snapshot(
                 grade_level=int(section["grade_level"]),
                 strand=str(section.get("strand") or ""),
                 section=str(section["code"]),
+                subject_code=str(subject["code"]),
                 subject=str(subject["name"]),
                 teacher_name=str(teacher["display_name"]),
                 teacher_email=str(teacher.get("email") or ""),
@@ -261,6 +262,7 @@ def load_portal_snapshot(
         id=session.user_id,
         name=str(profile["display_name"]),
         email=session.email,
+        student_number=str(student_row["student_number"]),
         school_level=str(section["school_level"]),
         grade_level=int(section["grade_level"]),
         strand=str(section.get("strand") or ""),

@@ -12,6 +12,7 @@ class StudentProfile:
     id: str
     name: str
     email: str
+    student_number: str
     school_level: str
     grade_level: int
     strand: str
@@ -26,6 +27,7 @@ class TeacherAssignment:
     grade_level: int
     strand: str
     section: str
+    subject_code: str
     subject: str
     teacher_name: str
     teacher_email: str
@@ -86,4 +88,3 @@ def evaluation_key(student: StudentProfile, assignment: TeacherAssignment) -> st
     """Stable key mirrored by the future PostgreSQL uniqueness constraint."""
 
     return f"{student.id}:{assignment.id}:{student.evaluation_period}".lower()
-

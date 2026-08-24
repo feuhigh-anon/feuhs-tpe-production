@@ -1,5 +1,6 @@
 import unittest
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 from feval.student_demo_data import DEMO_ASSIGNMENTS, DEMO_STUDENT, DEMO_SUBMISSIONS
@@ -9,6 +10,7 @@ from feval.student_portal import (
     pending_assignments,
     submitted_assignment_ids,
 )
+from student_app import display_section, format_submission_time, subject_mark
 
 
 class StudentPortalTest(unittest.TestCase):
@@ -64,6 +66,25 @@ class StudentPortalTest(unittest.TestCase):
         self.assertNotIn("Confidential evaluation access", source)
         self.assertNotIn("Welcome back", source)
         self.assertIn("Do not share your evaluation answers", source)
+
+    def test_student_facing_section_codes_follow_school_conventions(self):
+        self.assertEqual(display_section(replace(DEMO_STUDENT, grade_level=7, section="G07-1")), "G07-1")
+        self.assertEqual(display_section(replace(DEMO_STUDENT, grade_level=11, section="11AF01")), "11AF01")
+        self.assertEqual(
+            display_section(replace(DEMO_STUDENT, grade_level=12, section="12S01a")),
+            "12STEM01a",
+        )
+
+    def test_subject_badges_use_roster_codes_and_fit_six_characters(self):
+        self.assertEqual(subject_mark("G07ENG", "Grade 7 English"), "ENG")
+        self.assertEqual(subject_mark("OC", "Oral Communication in Context"), "OCC")
+        self.assertEqual(subject_mark("CPAR", "Contemporary Philippine Arts from the Regions"), "CPAR")
+        self.assertEqual(subject_mark("LONGCODE", "Long Subject"), "LONGCO")
+
+    def test_submission_time_is_displayed_in_manila_time(self):
+        submitted_at = datetime(2026, 8, 24, 4, 30, tzinfo=timezone.utc)
+
+        self.assertEqual(format_submission_time(submitted_at), "August 24, 2026 12:30 PM")
 
 
 if __name__ == "__main__":

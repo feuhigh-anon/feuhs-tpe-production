@@ -30,6 +30,9 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
   evaluation; daily and recurring substitutes are documented as excluded.
 - Verification: 46 unit tests passed, command help smoke tests passed, and Git
   whitespace validation passed.
+- Follow-up: isolated mixed student numbers under `ALPHA-MIXED-*` to avoid the
+  earlier level-specific fixture namespace and added a guarded restart option
+  for deleting only interrupted `alpha.mixed.*@example.invalid` accounts.
 - Commit: pending.
 
 ### 07:53:53 - Reconciled administrative schedules and revised login guidance
