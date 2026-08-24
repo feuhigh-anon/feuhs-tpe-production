@@ -738,7 +738,11 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     render_header()
     completed = len(submitted)
     total = len(assignments)
-    profile_parts = [student.student_number, display_section(student)]
+    profile_parts = [
+        value
+        for value in (getattr(student, "student_number", ""), display_section(student))
+        if value
+    ]
     profile_meta = " · ".join(profile_parts)
 
     with st.container(border=True, key="profile_card"):
