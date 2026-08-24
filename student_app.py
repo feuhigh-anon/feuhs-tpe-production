@@ -291,7 +291,7 @@ def inject_styles(theme: str) -> None:
             background: var(--gold); border-color: var(--gold); color: #142019;
         }}
         .login-hero {{
-            position: relative; overflow: hidden; width: calc(100% + 2rem); min-height: 13.5rem;
+            position: relative; overflow: hidden; width: calc(100% + 2rem); min-height: 20rem;
             margin: 0 -1rem 1.65rem; padding: 2.1rem 1.45rem 1.45rem;
             background: var(--deep); border-bottom: 5px solid var(--gold); color: #FFFFFF;
         }}
@@ -313,8 +313,8 @@ def inject_styles(theme: str) -> None:
             line-height: 1.2; margin-bottom: .4rem; letter-spacing: 0;
         }}
         .login-brand-copy strong {{
-            display: block; color: #FFFFFF; font-size: 1.55rem; line-height: 1.08; font-weight: 800;
-            white-space: normal; overflow-wrap: anywhere;
+            display: block; color: #FFFFFF; font-size: .76rem; line-height: 1.15; font-weight: 800;
+            white-space: nowrap;
         }}
         .login-brand-copy em {{
             display: block; color: rgba(255,255,255,.82); font-size: .82rem;
@@ -324,14 +324,14 @@ def inject_styles(theme: str) -> None:
             position: relative; z-index: 2; width: 3.5rem; height: 3px;
             background: var(--gold); margin: 1.35rem 0 .7rem;
         }}
-        .login-portal-label {{
-            position: relative; z-index: 2; color: rgba(255,255,255,.92);
-            font-size: .76rem; font-weight: 650;
+        .login-hero-copy {{
+            position: relative; z-index: 2; max-width: 25rem;
         }}
-        .login-intro {{ margin: 0 .1rem 1rem; }}
-        .login-eyebrow {{ color: var(--primary); font-size: .68rem; font-weight: 850; margin-bottom: .35rem; }}
-        .login-heading {{ color: var(--text); font-size: 1.35rem; font-weight: 820; line-height: 1.2; }}
-        .login-copy {{ color: var(--muted); font-size: .84rem; line-height: 1.45; margin-top: .35rem; }}
+        .login-hero-copy p {{
+            margin: 0 0 .65rem; color: rgba(255,255,255,.92);
+            font-size: .72rem; line-height: 1.48;
+        }}
+        .login-hero-copy strong {{ color: #FFFFFF; }}
         .st-key-login_page [data-testid="stForm"] {{
             padding: 1.05rem 1rem 1rem; border: 1px solid var(--border);
             border-top: 3px solid var(--gold); border-radius: 6px;
@@ -523,10 +523,10 @@ def inject_styles(theme: str) -> None:
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
             .assignment-subject {{ font-size: .96rem; }}
             .subject-mark {{ width: 2.8rem; height: 2.8rem; min-width: 2.8rem; }}
-            .login-hero {{ min-height: 12.8rem; padding-top: 1.85rem; }}
+            .login-hero {{ min-height: 20rem; padding-top: 1.85rem; }}
             .login-brand-row {{ gap: .7rem; }}
             .login-logo {{ width: 3.7rem; height: 3.7rem; min-width: 3.7rem; }}
-            .login-brand-copy strong {{ font-size: 1.2rem; }}
+            .login-brand-copy strong {{ font-size: .72rem; }}
             .agreement-scale {{ grid-template-columns: 1fr; }}
             .agreement-scale li {{
                 display: flex; align-items: center; gap: .55rem; text-align: left;
@@ -565,12 +565,10 @@ def render_login(settings: SupabaseSettings) -> None:
                 </div>
               </div>
               <div class="login-hero-rule"></div>
-              <div class="login-portal-label">Confidential evaluation access</div>
-            </div>
-            <div class="login-intro">
-              <div class="login-eyebrow">STUDENT ACCESS</div>
-              <div class="login-heading">Welcome back</div>
-              <div class="login-copy">Sign in with the evaluation account issued by your school.</div>
+              <div class="login-hero-copy">
+                <p>Your feedback regarding our teachers is integral to upholding a high-quality learning environment at FEU High School. Please take a few moments to complete this evaluation thoughtfully. Your input helps the school assess teaching quality and improve the overall learning experience.</p>
+                <p>This evaluation covers teacher performance during the <strong>First Quarter of School Year 2026-2027</strong>. Base your assessment only on your experiences during this period.</p>
+              </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -597,7 +595,7 @@ def render_login(settings: SupabaseSettings) -> None:
             """
             <div class="login-assurance">
               <div class="login-assurance-mark">ID</div>
-              <div><strong>Authorized access</strong><span>Only school-issued evaluation accounts can sign in.</span></div>
+              <div><strong>Authorized access</strong><span>Only school-issued evaluation accounts can sign in. For access assistance, contact edtech@feuhighschool.edu.ph.</span></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -606,8 +604,6 @@ def render_login(settings: SupabaseSettings) -> None:
             """
             <section class="login-guidance" aria-labelledby="evaluation-guidance-title">
               <h2 id="evaluation-guidance-title">Evaluation guidance</h2>
-              <p>Your feedback regarding our teachers is integral to upholding a high-quality learning environment at FEU High School. Please take a few moments to complete this evaluation thoughtfully. Your input helps the school assess teaching quality and improve the overall learning experience.</p>
-              <p>This evaluation covers teacher performance during the <strong>Second Semester of School Year 2025-2026</strong>. Base your assessment only on your experiences during this period.</p>
               <p><strong>Part 1: Teaching Performance and Your Overall Experience</strong> and <strong>Part 2: Self-Evaluation</strong> use the following agreement scale:</p>
               <ol class="agreement-scale" aria-label="Five-point agreement scale">
                 <li><b>1</b>Strongly Disagree</li>

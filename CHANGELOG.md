@@ -30,8 +30,10 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
   feedback, privacy-preserving completion evidence, and Republic Act No. 10173.
 - Added responsive width protections for the login container and a regression
   test for branding, period, privacy, and response-confidentiality wording.
-- The displayed Second Semester SY 2025-2026 scope must be confirmed before
-  production because the administrative schedule reviewed here is SY 2026-2027.
+- Updated the evaluation period to First Quarter SY 2026-2027, moved the
+  purpose and period guidance into the banner, kept the product title on one
+  line, removed the redundant welcome/access labels, and added the EdTech
+  support address.
 - Verification: 43 unit tests and Python compilation passed; no private roster
   or schedule content was added to Git or uploaded to Supabase.
 - Commit: pending.
