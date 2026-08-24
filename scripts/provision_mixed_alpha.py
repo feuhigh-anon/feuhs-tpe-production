@@ -93,14 +93,6 @@ def parse_args() -> argparse.Namespace:
         metavar="1-30",
         help="Number of days the synthetic evaluation period remains open.",
     )
-    parser.add_argument(
-        "--replace-existing",
-        action="store_true",
-        help=(
-            "Delete and recreate only the ten alpha.mixed.*@example.invalid "
-            "accounts. Use this to recover from an interrupted mixed-alpha run."
-        ),
-    )
     return parser.parse_args()
 
 
@@ -115,7 +107,7 @@ def planned_accounts() -> list[dict[str, Any]]:
                     "index": index,
                     "email": f"alpha.mixed.{cohort['key'].lower()}{index:02d}@example.invalid",
                     "display_name": f"{cohort['key']} Mixed Alpha Student {index:02d}",
-                    "student_number": f"ALPHA-MIXED-{cohort['key']}-{index:04d}",
+                    "student_number": f"ALPHA-{cohort['key']}-{index:04d}",
                     "section": section,
                 }
             )
@@ -144,25 +136,10 @@ def main() -> None:
         users = client.auth.admin.list_users(page=1, per_page=1000)
     except AuthApiError as exc:
         raise SystemExit(f"Supabase administrator authentication failed: {exc}") from None
-    existing_users = {
-        str(user.email).casefold(): user
-        for user in users
-        if user.email
-    }
-    target_emails = {row["email"].casefold() for row in accounts}
-    duplicates = sorted(email for email in target_emails if email in existing_users)
-    if duplicates and args.replace_existing:
-        for email in duplicates:
-            user = existing_users[email]
-            client.auth.admin.delete_user(str(user.id))
-        print(f"Removed {len(duplicates)} existing mixed-alpha account(s) before recreation.")
-        duplicates = []
+    existing = {str(user.email).casefold() for user in users if user.email}
+    duplicates = sorted(row["email"] for row in accounts if row["email"].casefold() in existing)
     if duplicates:
-        raise SystemExit(
-            "Mixed alpha accounts already exist; no changes were made. "
-            "If the prior run was interrupted, rerun with --replace-existing. Accounts: "
-            + ", ".join(duplicates)
-        )
+        raise SystemExit("Mixed alpha accounts already exist; no changes were made: " + ", ".join(duplicates))
 
     now = datetime.now(timezone.utc)
     period = upsert_one(

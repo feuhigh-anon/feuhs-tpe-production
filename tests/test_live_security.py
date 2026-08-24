@@ -116,10 +116,6 @@ class LiveSecurityTest(unittest.TestCase):
         )
         self.assertEqual(sum(len(cohort["assignments"]) for cohort in COHORTS), 9)
         self.assertTrue(all(row["email"].endswith("@example.invalid") for row in accounts))
-        self.assertTrue(
-            all(row["student_number"].startswith("ALPHA-MIXED-") for row in accounts)
-        )
-        self.assertEqual(len({row["student_number"] for row in accounts}), 10)
 
     def test_credentials_accessible_to_other_users_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -98,16 +98,6 @@ network that can reach Supabase:
   --url https://YOUR_PROJECT_REF.supabase.co
 ```
 
-If an interrupted run created only part of the mixed cohort, rerun with the
-guarded `--replace-existing` flag. It deletes and recreates only the ten
-`alpha.mixed.*@example.invalid` identities:
-
-```bash
-.venv/bin/python scripts/provision_mixed_alpha.py \
-  --replace-existing \
-  --url https://YOUR_PROJECT_REF.supabase.co
-```
-
 The command creates four JHS, three Grade 11, and three Grade 12 fictional
 accounts. Each account receives three synthetic teacher evaluations. The
 credentials CSV is owner-only and remains under Git-ignored `exports/`.
