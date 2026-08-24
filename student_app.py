@@ -291,8 +291,8 @@ def inject_styles(theme: str) -> None:
             background: var(--gold); border-color: var(--gold); color: #142019;
         }}
         .login-hero {{
-            position: relative; overflow: hidden; width: calc(100% + 2rem); min-height: 20rem;
-            margin: 0 -1rem 1.65rem; padding: 2.1rem 1.45rem 1.45rem;
+            position: relative; overflow: hidden; width: calc(100% + 2rem);
+            margin: 0 -1rem 1.65rem; padding: 1.65rem 1.45rem;
             background: var(--deep); border-bottom: 5px solid var(--gold); color: #FFFFFF;
         }}
         .login-architecture {{
@@ -313,13 +313,10 @@ def inject_styles(theme: str) -> None:
             line-height: 1.2; margin-bottom: .4rem; letter-spacing: 0;
         }}
         .login-brand-copy strong {{
-            display: block; color: #FFFFFF; font-size: .76rem; line-height: 1.15; font-weight: 800;
-            white-space: nowrap;
+            display: block; color: #FFFFFF; font-size: 1.35rem; line-height: 1.08; font-weight: 800;
+            white-space: normal;
         }}
-        .login-brand-copy em {{
-            display: block; color: rgba(255,255,255,.82); font-size: .82rem;
-            font-style: normal; margin-top: .42rem;
-        }}
+        .login-brand-copy strong span {{ display: block; }}
         .login-hero-rule {{
             position: relative; z-index: 2; width: 3.5rem; height: 3px;
             background: var(--gold); margin: 1.35rem 0 .7rem;
@@ -523,10 +520,10 @@ def inject_styles(theme: str) -> None:
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
             .assignment-subject {{ font-size: .96rem; }}
             .subject-mark {{ width: 2.8rem; height: 2.8rem; min-width: 2.8rem; }}
-            .login-hero {{ min-height: 20rem; padding-top: 1.85rem; }}
+            .login-hero {{ padding: 1.4rem 1.2rem; }}
             .login-brand-row {{ gap: .7rem; }}
             .login-logo {{ width: 3.7rem; height: 3.7rem; min-width: 3.7rem; }}
-            .login-brand-copy strong {{ font-size: .72rem; }}
+            .login-brand-copy strong {{ font-size: 1.12rem; }}
             .agreement-scale {{ grid-template-columns: 1fr; }}
             .agreement-scale li {{
                 display: flex; align-items: center; gap: .55rem; text-align: left;
@@ -560,8 +557,7 @@ def render_login(settings: SupabaseSettings) -> None:
                 <img class="login-logo" src="{logo_uri}" alt="FEU High School logo">
                 <div class="login-brand-copy">
                   <span class="login-kicker">FEU HIGH SCHOOL</span>
-                  <strong>Teacher Performance Evaluation</strong>
-                  <em>Student Portal</em>
+                  <strong><span>Teacher Performance</span><span>Evaluation</span></strong>
                 </div>
               </div>
               <div class="login-hero-rule"></div>
