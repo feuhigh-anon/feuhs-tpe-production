@@ -729,6 +729,10 @@ def subject_mark(subject: str, subject_code: str = "") -> str:
     return "".join(word[0] for word in words[:6]).upper()[:6]
 
 
+def assignment_subject_mark(assignment: TeacherAssignment) -> str:
+    return subject_mark(assignment.subject, getattr(assignment, "subject_code", ""))
+
+
 def display_datetime(value: datetime) -> datetime:
     current = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     return current.astimezone(DISPLAY_TIMEZONE)
@@ -804,7 +808,7 @@ def render_assignment_card(assignment: TeacherAssignment, is_submitted: bool, in
             st.markdown(
                 f"""
                 <div class="assignment-copy">
-                  <div class="subject-mark">{html.escape(subject_mark(assignment.subject, assignment.subject_code))}</div>
+                  <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
                   <div>
                     <div class="assignment-subject">{html.escape(assignment.subject)}</div>
                     <div class="assignment-teacher">{html.escape(assignment.teacher_name)}</div>
@@ -846,7 +850,7 @@ def render_assignment_heading(assignment: TeacherAssignment) -> None:
     st.markdown(
         f"""
         <div class="assignment-copy" style="margin-bottom:.85rem">
-          <div class="subject-mark">{html.escape(subject_mark(assignment.subject, assignment.subject_code))}</div>
+          <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
           <div>
             <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
             <div class="assignment-teacher">{html.escape(assignment.subject)}</div>
@@ -1071,7 +1075,7 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
         st.markdown(
             f"""
             <div class="submission-copy">
-              <div class="subject-mark">{html.escape(subject_mark(assignment.subject, assignment.subject_code))}</div>
+              <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
               <div>
                 <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
                 <div class="assignment-teacher">{html.escape(assignment.subject)}</div>
