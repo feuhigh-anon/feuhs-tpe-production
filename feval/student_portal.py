@@ -17,6 +17,7 @@ class StudentProfile:
     strand: str
     section: str
     evaluation_period: str
+    student_number: str = ""
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class TeacherAssignment:
     teacher_name: str
     teacher_email: str
     evaluation_period: str
+    subject_code: str = ""
     is_active: bool = True
 
 

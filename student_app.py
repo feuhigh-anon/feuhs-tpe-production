@@ -5,8 +5,10 @@ from __future__ import annotations
 import base64
 import html
 import os
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 
@@ -59,6 +61,7 @@ AUTH_STATE_KEYS = (
     "supabase_client",
 )
 ASSET_DIRECTORY = Path(__file__).resolve().parent / "assets"
+DISPLAY_TIMEZONE = ZoneInfo("Asia/Manila")
 
 
 @st.cache_data(show_spinner=False)
@@ -389,6 +392,10 @@ def inject_styles(theme: str) -> None:
             background: var(--surface-raised);
             box-shadow: 0 3px 12px var(--shadow);
         }}
+        [data-testid="stVerticalBlockBorderWrapper"] > div {{
+            border-color: var(--border) !important;
+            background: var(--surface-raised) !important;
+        }}
         .portal-card {{ padding: .25rem .15rem; }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
@@ -397,7 +404,8 @@ def inject_styles(theme: str) -> None:
             font-size: 1.35rem; font-weight: 800;
         }}
         .subject-mark {{
-            width: 3.15rem; height: 3.15rem; min-width: 3.15rem; border-radius: 6px;
+            width: 4.5rem; height: 3.15rem; min-width: 4.5rem; padding: 0 .35rem;
+            border-radius: 6px; white-space: nowrap;
             display: grid; place-items: center; background: var(--soft-green); color: var(--primary);
             font-size: .82rem; font-weight: 800; border: 1px solid var(--border);
         }}
@@ -519,7 +527,7 @@ def inject_styles(theme: str) -> None:
         @media (max-width: 520px) {{
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
             .assignment-subject {{ font-size: .96rem; }}
-            .subject-mark {{ width: 2.8rem; height: 2.8rem; min-width: 2.8rem; }}
+            .subject-mark {{ width: 4rem; height: 2.8rem; min-width: 4rem; }}
             .login-hero {{ padding: 1.4rem 1.2rem; }}
             .login-brand-row {{ gap: .7rem; }}
             .login-logo {{ width: 3.7rem; height: 3.7rem; min-width: 3.7rem; }}
@@ -635,19 +643,24 @@ def render_login(settings: SupabaseSettings) -> None:
 def render_header(back_page: str | None = None) -> None:
     with st.container(key="portal_header"):
         authenticated = st.session_state.get("portal_mode") == "supabase"
-        if authenticated:
-            left, title, theme_column, logout_column = st.columns(
-                [0.13, 0.59, 0.14, 0.14], vertical_alignment="center"
+        if back_page:
+            if authenticated:
+                left, title, theme_column, logout_column = st.columns(
+                    [0.13, 0.59, 0.14, 0.14], vertical_alignment="center"
+                )
+            else:
+                left, title, theme_column = st.columns(
+                    [0.14, 0.69, 0.17], vertical_alignment="center"
+                )
+            with left:
+                if st.button("", icon=":material/arrow_back:", key="header_left", help="Back"):
+                    navigate(back_page)
+        elif authenticated:
+            title, theme_column, logout_column = st.columns(
+                [0.73, 0.14, 0.13], vertical_alignment="center"
             )
         else:
-            left, title, theme_column = st.columns(
-                [0.14, 0.69, 0.17], vertical_alignment="center"
-            )
-        with left:
-            icon = ":material/arrow_back:" if back_page else ":material/menu:"
-            if st.button("", icon=icon, key="header_left", help="Back" if back_page else "Menu"):
-                if back_page:
-                    navigate(back_page)
+            title, theme_column = st.columns([0.83, 0.17], vertical_alignment="center")
         with title:
             st.markdown(
                 '<div class="header-title">FEU High School<span>Teacher Performance Evaluation</span></div>',
@@ -682,32 +695,57 @@ def render_bottom_nav(active: str) -> None:
                         navigate(page)
 
 
-def subject_mark(subject: str) -> str:
-    words = [word for word in subject.replace("and", " ").split() if word]
+def display_section(student) -> str:
+    raw_section = str(student.section or "").strip()
+    compact = re.sub(r"\s+", "", raw_section)
+    grade = int(student.grade_level)
+    if grade <= 10:
+        suffix = re.sub(r"^(?:G(?:RADE)?\s*)?0?\d{1,2}", "", raw_section, flags=re.IGNORECASE)
+        suffix = re.sub(r"JHS|[-_\s]+", "", suffix, flags=re.IGNORECASE).strip()
+        return f"G{grade:02d}-{suffix}" if suffix else f"G{grade:02d}"
+    return re.sub(r"[^A-Za-z0-9]", "", compact)
+
+
+SUBJECT_SHORT_NAMES = {
+    "english": "ENG",
+    "oral communication in context": "OCC",
+    "contemporary philippine arts from the regions": "CPAR",
+}
+
+
+def subject_mark(subject: str, subject_code: str = "") -> str:
+    normalized_subject = re.sub(r"\s+", " ", subject.casefold()).strip()
+    for name, short_name in SUBJECT_SHORT_NAMES.items():
+        if name in normalized_subject:
+            return short_name
+    code = re.sub(r"[^A-Za-z0-9]", "", subject_code).upper()
+    if code and not code.startswith("ALPHA"):
+        return code[:6]
+    words = [word for word in re.findall(r"[A-Za-z0-9]+", subject) if word.casefold() not in {"and", "of", "the"}]
     if not words:
         return "FE"
     if len(words) == 1:
-        return words[0][:2].upper()
-    return "".join(word[0] for word in words[:2]).upper()
+        return words[0][:6].upper()
+    return "".join(word[0] for word in words[:6]).upper()[:6]
+
+
+def display_datetime(value: datetime) -> datetime:
+    current = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return current.astimezone(DISPLAY_TIMEZONE)
 
 
 def render_home(student, assignments, submitted: frozenset[str]) -> None:
     render_header()
     completed = len(submitted)
     total = len(assignments)
-    profile_parts = [f"Grade {student.grade_level}"]
-    if student.strand:
-        profile_parts.append(student.strand)
-    profile_parts.append(student.section)
+    profile_parts = [student.student_number, display_section(student)]
     profile_meta = " · ".join(profile_parts)
 
     with st.container(border=True, key="profile_card"):
-        initials = "".join(part[0] for part in student.name.split()[:2]).upper()
         st.markdown(
             f"""
             <div class="portal-card">
               <div class="profile-row">
-                <div class="avatar">{html.escape(initials)}</div>
                 <div style="flex:1">
                   <div class="profile-name">{html.escape(student.name)}</div>
                   <div class="gold-rule"></div>
@@ -722,8 +760,7 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
         st.markdown(
             f"""
             <div class="period-row">
-              <div><div class="period-label">Evaluation Period</div><div class="period-value">{html.escape(student.evaluation_period)}</div></div>
-              <div class="subject-mark">{html.escape(subject_mark(student.evaluation_period))}</div>
+                            <div><div class="period-label">Evaluation Period</div><div class="period-value">{html.escape(student.evaluation_period)}</div></div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -763,7 +800,7 @@ def render_assignment_card(assignment: TeacherAssignment, is_submitted: bool, in
             st.markdown(
                 f"""
                 <div class="assignment-copy">
-                  <div class="subject-mark">{html.escape(subject_mark(assignment.subject))}</div>
+                  <div class="subject-mark">{html.escape(subject_mark(assignment.subject, assignment.subject_code))}</div>
                   <div>
                     <div class="assignment-subject">{html.escape(assignment.subject)}</div>
                     <div class="assignment-teacher">{html.escape(assignment.teacher_name)}</div>
@@ -785,6 +822,7 @@ def render_assignment_card(assignment: TeacherAssignment, is_submitted: bool, in
 
 def render_teachers(assignments, submitted: frozenset[str]) -> None:
     render_header()
+    st.markdown('<div class="section-heading">My Teachers</div>', unsafe_allow_html=True)
     st.caption("You can only evaluate teachers assigned to your section.")
     for index, assignment in enumerate(assignments):
         render_assignment_card(assignment, assignment.id in submitted, index)
@@ -804,7 +842,7 @@ def render_assignment_heading(assignment: TeacherAssignment) -> None:
     st.markdown(
         f"""
         <div class="assignment-copy" style="margin-bottom:.85rem">
-          <div class="subject-mark">{html.escape(subject_mark(assignment.subject))}</div>
+          <div class="subject-mark">{html.escape(subject_mark(assignment.subject, assignment.subject_code))}</div>
           <div>
             <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
             <div class="assignment-teacher">{html.escape(assignment.subject)}</div>
@@ -962,7 +1000,7 @@ def render_review(
         type="primary",
         disabled=not confirmed,
     ):
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         if st.session_state.portal_mode == "supabase":
             client = st.session_state.get("supabase_client")
             if client is None:
@@ -1024,12 +1062,12 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
     )
     st.markdown('<div class="gold-rule" style="margin:1.2rem 0"></div>', unsafe_allow_html=True)
 
-    submitted_at = st.session_state.last_submission or datetime.now()
+    submitted_at = display_datetime(st.session_state.last_submission or datetime.now(timezone.utc))
     with st.container(border=True, key="submitted_card"):
         st.markdown(
             f"""
             <div class="submission-copy">
-              <div class="subject-mark">{html.escape(subject_mark(assignment.subject))}</div>
+              <div class="subject-mark">{html.escape(subject_mark(assignment.subject, assignment.subject_code))}</div>
               <div>
                 <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
                 <div class="assignment-teacher">{html.escape(assignment.subject)}</div>

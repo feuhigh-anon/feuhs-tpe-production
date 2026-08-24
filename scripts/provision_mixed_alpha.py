@@ -3,6 +3,7 @@
 This administrator-only script uses a Supabase secret key entered at the
 terminal prompt. All generated identities are explicitly synthetic, and the
 owner-only credentials file is written under the Git-ignored exports/ folder.
+Subject codes and names match the reconciled UCSP roster workbook.
 """
 
 from __future__ import annotations
@@ -38,9 +39,9 @@ COHORTS: tuple[dict[str, Any], ...] = (
             "is_active": True,
         },
         "assignments": (
-            ("ALPHA-J7-T001", "Teacher JHS Mathematics", "ALPHA-J7-MATH", "Mathematics 7"),
-            ("ALPHA-J7-T002", "Teacher JHS Science", "ALPHA-J7-SCI", "Science 7"),
-            ("ALPHA-J7-T003", "Teacher JHS English", "ALPHA-J7-ENG", "English 7"),
+            ("ALPHA-J7-T001", "Teacher JHS Mathematics", "G07MATH", "Grade 7 Mathematics"),
+            ("ALPHA-J7-T002", "Teacher JHS Science", "G07SCI", "Grade 7 Science"),
+            ("ALPHA-J7-T003", "Teacher JHS English", "G07ENG", "Grade 7 English"),
         ),
     },
     {
@@ -54,9 +55,9 @@ COHORTS: tuple[dict[str, Any], ...] = (
             "is_active": True,
         },
         "assignments": (
-            ("ALPHA-G11-T001", "Teacher Grade 11 Mathematics", "ALPHA-G11-GM", "General Mathematics"),
-            ("ALPHA-G11-T002", "Teacher Grade 11 Science", "ALPHA-G11-ELS", "Earth and Life Science"),
-            ("ALPHA-G11-T003", "Teacher Grade 11 Communication", "ALPHA-G11-OC", "Oral Communication in Context"),
+            ("ALPHA-G11-T001", "Teacher Grade 11 Mathematics", "GM", "General Mathematics"),
+            ("ALPHA-G11-T002", "Teacher Grade 11 Science", "GS", "General Science"),
+            ("ALPHA-G11-T003", "Teacher Grade 11 Communication", "EC", "Effective Communication"),
         ),
     },
     {
@@ -70,9 +71,9 @@ COHORTS: tuple[dict[str, Any], ...] = (
             "is_active": True,
         },
         "assignments": (
-            ("ALPHA-G12-T001", "Teacher Grade 12 Physics", "ALPHA-G12-GP1", "General Physics 1"),
-            ("ALPHA-G12-T002", "Teacher Grade 12 UCSP", "ALPHA-G12-UCSP", "Understanding Culture, Society, and Politics"),
-            ("ALPHA-G12-T003", "Teacher Grade 12 Arts", "ALPHA-G12-CPAR", "Contemporary Philippine Arts from the Regions"),
+            ("ALPHA-G12-T001", "Teacher Grade 12 Physics", "GP1", "General Physics 1"),
+            ("ALPHA-G12-T002", "Teacher Grade 12 UCSP", "UCSP", "Understanding Culture, Society, and Politics"),
+            ("ALPHA-G12-T003", "Teacher Grade 12 Arts", "CPAR", "Contemporary Philippine Arts from the Regions"),
         ),
     },
 )
