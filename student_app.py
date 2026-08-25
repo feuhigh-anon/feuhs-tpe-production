@@ -558,12 +558,8 @@ def inject_styles(theme: str) -> None:
         .student-surname {{ color: var(--primary); font-size: 1.55rem; font-weight: 850; line-height: 1.05; letter-spacing: 0; text-transform: uppercase; }}
         .student-given-name {{ color: var(--text); font-size: 1.2rem; font-weight: 650; line-height: 1.15; }}
         .st-key-submitted_card .submission-copy {{ padding-bottom: .35rem; }}
-        .st-key-profile_card [role="separator"] {{
-            border-top: 1px solid var(--border) !important;
-            margin: 1rem 0 .8rem !important;
-            opacity: 1 !important;
-        }}
-        .history-flavor {{ color: var(--muted); font-size: .78rem; line-height: 1.45; margin: -.35rem 0 1rem; }}
+        .section-flavor {{ color: var(--muted); font-size: .78rem; line-height: 1.45; margin: -.25rem 0 1rem; }}
+        .history-submission-meta {{ color: var(--muted); font-size: .78rem; line-height: 1.35; margin-top: .25rem; padding-bottom: .15rem; }}
         [data-testid="stAlert"] {{ border-radius: 6px; }}
         @media (max-width: 520px) {{
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
@@ -820,7 +816,6 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.divider()
         st.markdown(
             f"""
             <div class="period-row">
@@ -887,7 +882,10 @@ def render_assignment_card(assignment: TeacherAssignment, is_submitted: bool, in
 def render_teachers(assignments, submitted: frozenset[str]) -> None:
     render_header()
     st.markdown('<div class="section-heading">My Teachers</div>', unsafe_allow_html=True)
-    st.caption("You can only evaluate teachers assigned to your section.")
+    st.markdown(
+        '<div class="section-flavor">Only teachers assigned to your section are available for evaluation.</div>',
+        unsafe_allow_html=True,
+    )
     for index, assignment in enumerate(assignments):
         render_assignment_card(assignment, assignment.id in submitted, index)
     render_bottom_nav("teachers")
@@ -1160,18 +1158,37 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
     render_bottom_nav("history")
 
 
-def render_history(assignments, submitted: frozenset[str]) -> None:
+def render_history(assignments, submissions: tuple[SubmissionRecord, ...]) -> None:
     render_header()
     st.markdown('<div class="section-heading">My Evaluations</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="history-flavor">A record of the evaluations you have completed during this evaluation period.</div>',
+        '<div class="section-flavor">Your completed evaluations for this period.</div>',
         unsafe_allow_html=True,
     )
-    completed = [assignment for assignment in assignments if assignment.id in submitted]
+    submitted_by_assignment = {
+        submission.assignment_id: submission
+        for submission in submissions
+    }
+    completed = [assignment for assignment in assignments if assignment.id in submitted_by_assignment]
     if not completed:
         st.markdown('<div class="empty-state">No evaluations submitted yet.</div>', unsafe_allow_html=True)
     for index, assignment in enumerate(completed):
-        render_assignment_card(assignment, True, index + 100)
+        submission = submitted_by_assignment[assignment.id]
+        submitted_at = display_datetime(submission.submitted_at)
+        with st.container(border=True, key=f"history_card_{index}"):
+            st.markdown(
+                f"""
+                <div class="submission-copy">
+                  <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
+                  <div>
+                    <div class="assignment-subject">{html.escape(assignment.subject)}</div>
+                    <div class="assignment-teacher">{html.escape(assignment.teacher_name)}</div>
+                    <div class="history-submission-meta">Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
     render_bottom_nav("history")
 
 
@@ -1243,7 +1260,12 @@ def main() -> None:
     elif page == "submitted":
         render_submitted(assignment, assignments, submitted)
     elif page == "history":
-        render_history(assignments, submitted)
+        history_submissions = (
+            st.session_state.supabase_snapshot.submissions
+            if settings is not None
+            else tuple(st.session_state.submissions)
+        )
+        render_history(assignments, history_submissions)
     elif page == "help":
         render_help(student)
     else:
