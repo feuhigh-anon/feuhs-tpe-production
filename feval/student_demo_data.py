@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from feval.student_portal import StudentProfile, SubmissionRecord, TeacherAssignment
 
@@ -17,6 +17,7 @@ DEMO_STUDENT = StudentProfile(
     section="11STEM-DEMO",
     evaluation_period="Q2 2026",
     student_number="DEMO-2026-001",
+    evaluation_closes_at=datetime(2026, 6, 30, 16, 0, tzinfo=timezone.utc),
 )
 
 

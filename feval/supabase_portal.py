@@ -268,6 +268,7 @@ def load_portal_snapshot(
         section=str(section["code"]),
         evaluation_period=str(active_period["code"]),
         student_number=str(student_row["student_number"]),
+        evaluation_closes_at=_parse_datetime(active_period["closes_at"]),
     )
     return PortalSnapshot(
         student=student,

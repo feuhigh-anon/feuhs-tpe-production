@@ -18,6 +18,7 @@ class StudentProfile:
     section: str
     evaluation_period: str
     student_number: str = ""
+    evaluation_closes_at: datetime | None = None
 
 
 @dataclass(frozen=True)

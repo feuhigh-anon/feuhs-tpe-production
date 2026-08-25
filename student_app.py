@@ -405,6 +405,7 @@ def inject_styles(theme: str) -> None:
         .st-key-pending_card,
         .st-key-completed_card,
         [class*="st-key-assignment_card_"],
+        [class*="st-key-history_card_"],
         .st-key-submitted_card {{
             box-sizing: border-box !important;
             padding: 1.05rem 1rem 1.35rem !important;
@@ -421,12 +422,14 @@ def inject_styles(theme: str) -> None:
         .st-key-pending_card > div,
         .st-key-completed_card > div,
         [class*="st-key-assignment_card_"] > div,
+        [class*="st-key-history_card_"] > div,
         .st-key-submitted_card > div {{
             background: var(--surface-raised) !important;
         }}
         .st-key-profile_card .portal-card,
         .st-key-progress_card,
         [class*="st-key-assignment_card_"] .assignment-copy,
+        [class*="st-key-history_card_"] .submission-copy,
         .st-key-submitted_card .submission-copy {{
             margin: 0 !important;
         }}
@@ -453,12 +456,12 @@ def inject_styles(theme: str) -> None:
         .home-profile-banner .student-surname {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; }}
         .home-profile-banner .student-given-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; }}
         .home-profile-content {{ padding: 0 .15rem .15rem; }}
-        .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 4.35rem; }}
+        .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 3.9rem; padding-bottom: .4rem; }}
         .home-progress-copy {{ min-width: 0; flex: 1; }}
         .home-progress-label {{ color: var(--muted); font-size: .82rem; line-height: 1.3; }}
         .home-progress-value {{ color: var(--primary); font-size: 1.12rem; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }}
         .progress-circle {{
-            --progress: 0%; width: 4.35rem; height: 4.35rem; border-radius: 50%;
+            --progress: 0%; width: 3.9rem; height: 3.9rem; border-radius: 50%;
             display: grid; place-items: center; flex: 0 0 auto;
             background: conic-gradient(var(--primary) var(--progress), var(--border) 0);
             position: relative;
@@ -471,6 +474,10 @@ def inject_styles(theme: str) -> None:
         .home-count-card {{ min-height: 4.25rem; display: flex; flex-direction: column; justify-content: center; gap: .15rem; }}
         .home-count-label {{ color: var(--muted); font-size: .78rem; line-height: 1.2; }}
         .home-count-value {{ color: var(--text); font-size: 1.35rem; font-weight: 800; line-height: 1.1; }}
+        .deadline-value {{ color: var(--primary); font-size: 1.22rem; font-weight: 800; line-height: 1.15; }}
+        .deadline-date {{ color: var(--text); font-size: .78rem; line-height: 1.3; margin-top: .2rem; }}
+        .checklist-copy {{ color: var(--muted); font-size: .78rem; line-height: 1.45; }}
+        .checklist-copy strong {{ color: var(--text); }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
             width: 4rem; height: 4rem; min-width: 4rem; border-radius: 50%;
@@ -620,7 +627,7 @@ def inject_styles(theme: str) -> None:
             }}
             .agreement-scale li:last-child {{ border-bottom: 0; }}
             .agreement-scale b {{ display: inline; min-width: 1rem; margin: 0; }}
-            .progress-circle {{ width: 4.1rem; height: 4.1rem; }}
+            .progress-circle {{ width: 3.75rem; height: 3.75rem; }}
             .home-progress-layout {{ gap: .65rem; }}
         }}
         </style>
@@ -855,6 +862,15 @@ def display_datetime(value: datetime) -> datetime:
     return current.astimezone(DISPLAY_TIMEZONE)
 
 
+def days_remaining(student, now: datetime | None = None) -> int | None:
+    closes_at = getattr(student, "evaluation_closes_at", None)
+    if closes_at is None:
+        return None
+    current = now or datetime.now(timezone.utc)
+    current = current if current.tzinfo else current.replace(tzinfo=timezone.utc)
+    return max(0, (closes_at - current).days)
+
+
 def render_home(student, assignments, submitted: frozenset[str]) -> None:
     render_header()
     completed = len(submitted)
@@ -862,6 +878,7 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     progress = completed / total if total else 0
     surname, given_name = student_name_lines(student.name)
     architecture_uri = asset_data_uri("feu-architecture-line-art.png")
+    remaining_days = days_remaining(student)
     profile_meta = " · ".join(
         value
         for value in (getattr(student, "student_number", ""), display_section(student))
@@ -913,13 +930,14 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     with pending_column:
         with st.container(border=True, key="pending_card"):
             st.markdown(
-                f'<div class="home-count-card"><div class="home-count-label">Pending</div><div class="home-count-value">{pending_count}</div></div>',
+                f'<div class="home-count-card"><div class="home-count-label">Days remaining</div><div class="deadline-value">{remaining_days if remaining_days is not None else "n/a"}</div><div class="deadline-date">Deadline: {display_datetime(student.evaluation_closes_at):%B %d, %Y} </div></div>' if remaining_days is not None else
+                '<div class="home-count-card"><div class="home-count-label">Days remaining</div><div class="deadline-value">n/a</div><div class="deadline-date">Deadline is not configured</div></div>',
                 unsafe_allow_html=True,
             )
     with completed_column:
         with st.container(border=True, key="completed_card"):
             st.markdown(
-                f'<div class="home-count-card"><div class="home-count-label">Completed</div><div class="home-count-value">{completed}</div></div>',
+                '<div class="home-count-card"><div class="home-count-label">Evaluation checklist</div><div class="checklist-copy"><strong>25</strong> rating statements<br><strong>3</strong> feedback prompts</div></div>',
                 unsafe_allow_html=True,
             )
 
