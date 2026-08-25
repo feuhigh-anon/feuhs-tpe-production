@@ -400,6 +400,32 @@ def inject_styles(theme: str) -> None:
         [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {{
             background: var(--surface-raised) !important;
         }}
+        .st-key-profile_card,
+        .st-key-progress_card,
+        [class*="st-key-assignment_card_"],
+        .st-key-submitted_card {{
+            box-sizing: border-box !important;
+            padding: 1.05rem 1rem 1.35rem !important;
+            border: 1px solid var(--border) !important;
+            border-top: 3px solid var(--gold) !important;
+            border-radius: 6px !important;
+            background: var(--surface-raised) !important;
+            outline: 1px solid var(--border) !important;
+            outline-offset: -1px;
+            box-shadow: 0 5px 18px var(--shadow), inset 0 0 0 1px var(--border) !important;
+        }}
+        .st-key-profile_card > div,
+        .st-key-progress_card > div,
+        [class*="st-key-assignment_card_"] > div,
+        .st-key-submitted_card > div {{
+            background: var(--surface-raised) !important;
+        }}
+        .st-key-profile_card .portal-card,
+        .st-key-progress_card,
+        [class*="st-key-assignment_card_"] .assignment-copy,
+        .st-key-submitted_card .submission-copy {{
+            margin: 0 !important;
+        }}
         .portal-card {{ padding: .25rem .15rem; }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
@@ -416,12 +442,12 @@ def inject_styles(theme: str) -> None:
         .profile-name, .assignment-subject {{ font-size: 1.05rem; font-weight: 750; line-height: 1.25; }}
         .profile-meta, .assignment-teacher, .submission-meta {{ color: var(--muted); font-size: .86rem; line-height: 1.4; }}
         .gold-rule {{ height: 2px; background: var(--gold); margin: .45rem 0 .55rem; width: 100%; }}
-        .period-row {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; }}
+        .period-row {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .15rem; }}
         .period-label {{ color: var(--muted); font-size: .82rem; }}
         .period-value {{ color: var(--primary); font-size: 1.12rem; font-weight: 750; }}
         .progress-count {{ margin: .35rem 0; font-size: 1.08rem; }}
         .progress-count strong {{ color: var(--primary); font-size: 1.25rem; }}
-        .status {{ font-size: .82rem; font-weight: 700; margin-top: .25rem; }}
+        .status {{ font-size: .82rem; font-weight: 700; margin-top: .25rem; padding-bottom: .1rem; }}
         .status.pending {{ color: #B98200; }}
         .status.submitted {{ color: var(--primary); }}
         .status-dot {{ display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .35rem; background: currentColor; }}
@@ -429,7 +455,7 @@ def inject_styles(theme: str) -> None:
             color: var(--primary); font-size: 1rem; font-weight: 800;
             padding-bottom: .45rem; border-bottom: 2px solid var(--gold); margin-bottom: .8rem;
         }}
-        .rating-anchors {{ display: flex; justify-content: space-between; color: var(--muted); font-size: .68rem; margin-top: -.45rem; }}
+        .rating-anchors {{ display: flex; justify-content: space-between; color: var(--muted); font-size: .68rem; margin-top: -.45rem; padding-bottom: .45rem; }}
         .success-mark {{
             width: 6rem; height: 6rem; margin: 2.25rem auto 1.25rem; border-radius: 50%;
             display: grid; place-items: center; background: var(--soft-green); color: var(--primary);
