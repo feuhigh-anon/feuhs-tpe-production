@@ -439,6 +439,10 @@ def inject_styles(theme: str) -> None:
             padding-top: 1rem !important;
             padding-bottom: 1rem !important;
         }}
+        .st-key-pending_card,
+        .st-key-completed_card {{
+            height: 6.1rem !important;
+        }}
         .portal-card {{ padding: .25rem .15rem; }}
         .home-profile-banner {{
             position: relative; min-height: 6.25rem; margin: -1.05rem -1rem 1rem;
@@ -471,7 +475,7 @@ def inject_styles(theme: str) -> None:
             background: var(--surface-raised);
         }}
         .progress-circle-label {{ position: relative; z-index: 1; color: var(--primary); font-size: .9rem; font-weight: 850; }}
-        .home-count-card {{ min-height: 4.25rem; display: flex; flex-direction: column; justify-content: center; gap: .15rem; }}
+        .home-count-card {{ height: 4.1rem; display: flex; flex-direction: column; justify-content: center; gap: .15rem; }}
         .home-count-label {{ color: var(--muted); font-size: .78rem; line-height: 1.2; }}
         .home-count-value {{ color: var(--text); font-size: 1.35rem; font-weight: 800; line-height: 1.1; }}
         .deadline-value {{ color: var(--primary); font-size: 1.22rem; font-weight: 800; line-height: 1.15; }}
@@ -480,6 +484,7 @@ def inject_styles(theme: str) -> None:
         .checklist-copy strong {{ color: var(--text); }}
         .activity-copy {{ color: var(--muted); font-size: .78rem; line-height: 1.45; }}
         .activity-copy strong {{ color: var(--text); }}
+        .activity-date {{ display: inline-block; padding-bottom: .3rem; }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
             width: 4rem; height: 4rem; min-width: 4rem; border-radius: 50%;
@@ -950,16 +955,16 @@ def render_home(
             )
             if latest is None or latest_assignment is None:
                 activity_html = (
-                    '<div class="home-count-card"><div class="home-count-label">Recent activity</div>'
+                    '<div class="home-count-card"><div class="home-count-label">Most recent evaluation</div>'
                     '<div class="activity-copy">Your evaluation history will appear here after your first submission.</div></div>'
                 )
             else:
                 submitted_at = display_datetime(latest.submitted_at)
                 activity_html = (
-                    f'<div class="home-count-card"><div class="home-count-label">Recent activity</div>'
-                    f'<div class="activity-copy"><strong>{html.escape(latest_assignment.subject)}</strong><br>'
+                    f'<div class="home-count-card"><div class="home-count-label">Most recent evaluation</div>'
+                    f'<div class="activity-copy"><strong>{html.escape(assignment_subject_mark(latest_assignment))}</strong><br>'
                     f'{html.escape(latest_assignment.teacher_name)}<br>'
-                    f'Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div></div>'
+                    f'<span class="activity-date">{submitted_at:%B %d, %Y %I:%M %p}</span></div></div>'
                 )
             st.markdown(
                 activity_html,
