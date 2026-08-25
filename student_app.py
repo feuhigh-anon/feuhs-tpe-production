@@ -430,6 +430,12 @@ def inject_styles(theme: str) -> None:
         .st-key-submitted_card .submission-copy {{
             margin: 0 !important;
         }}
+        .st-key-progress_card,
+        .st-key-pending_card,
+        .st-key-completed_card {{
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }}
         .portal-card {{ padding: .25rem .15rem; }}
         .home-profile-banner {{
             position: relative; min-height: 6.25rem; margin: -1.05rem -1rem 1rem;
@@ -447,18 +453,18 @@ def inject_styles(theme: str) -> None:
         .home-profile-banner .student-surname {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; }}
         .home-profile-banner .student-given-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; }}
         .home-profile-content {{ padding: 0 .15rem .15rem; }}
-        .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 5.7rem; }}
+        .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 4.35rem; }}
         .home-progress-copy {{ min-width: 0; flex: 1; }}
         .home-progress-label {{ color: var(--muted); font-size: .82rem; line-height: 1.3; }}
         .home-progress-value {{ color: var(--primary); font-size: 1.12rem; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }}
         .progress-circle {{
-            --progress: 0%; width: 5.7rem; height: 5.7rem; border-radius: 50%;
+            --progress: 0%; width: 4.35rem; height: 4.35rem; border-radius: 50%;
             display: grid; place-items: center; flex: 0 0 auto;
             background: conic-gradient(var(--primary) var(--progress), var(--border) 0);
             position: relative;
         }}
         .progress-circle::after {{
-            content: ""; position: absolute; inset: .42rem; border-radius: 50%;
+            content: ""; position: absolute; inset: .62rem; border-radius: 50%;
             background: var(--surface-raised);
         }}
         .progress-circle-label {{ position: relative; z-index: 1; color: var(--primary); font-size: .9rem; font-weight: 850; }}
@@ -483,8 +489,8 @@ def inject_styles(theme: str) -> None:
         .period-row {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; }}
         .period-label {{ color: var(--muted); font-size: .82rem; }}
         .period-value {{ color: var(--primary); font-size: 1.12rem; font-weight: 750; }}
-        .progress-count {{ margin: .35rem 0; font-size: 1.08rem; }}
-        .progress-count strong {{ color: var(--primary); font-size: 1.25rem; }}
+        .progress-count {{ margin: .25rem 0; font-size: .82rem; line-height: 1.2; }}
+        .progress-count strong {{ color: var(--primary); font-size: 1rem; }}
         .status {{ font-size: .82rem; font-weight: 700; margin-top: .25rem; padding-bottom: .1rem; }}
         .status.pending {{ color: #B98200; }}
         .status.submitted {{ color: var(--primary); }}
@@ -614,7 +620,7 @@ def inject_styles(theme: str) -> None:
             }}
             .agreement-scale li:last-child {{ border-bottom: 0; }}
             .agreement-scale b {{ display: inline; min-width: 1rem; margin: 0; }}
-            .progress-circle {{ width: 5rem; height: 5rem; }}
+            .progress-circle {{ width: 4.1rem; height: 4.1rem; }}
             .home-progress-layout {{ gap: .65rem; }}
         }}
         </style>
