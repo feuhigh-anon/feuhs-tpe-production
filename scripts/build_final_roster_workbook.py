@@ -21,7 +21,7 @@ DEFAULT_SOURCE = Path(
     "FEU_HS_Teacher_Performance_Evaluation_Roster_UCSP_Reconciled_SectionsRefreshed.xlsx"
 )
 DEFAULT_ENROLLMENT = Path(
-    "/Users/ronmarccharlesms/Downloads/"
+    Path.home() / "Downloads/"
     "FEU HS Enrolled as of Aug 25_SY26-27(3).xlsx"
 )
 DEFAULT_OUTPUT = Path("outputs/FEU_TPE_Final_Q1_2026-2027.xlsx")

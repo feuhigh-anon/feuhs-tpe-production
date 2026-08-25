@@ -126,7 +126,7 @@ def load_portal_snapshot(
     )
     section = _one(
         client.table("sections")
-        .select("id,code,school_level,grade_level,strand,is_active")
+        .select("id,code,school_level,grade_level,is_active")
         .eq("id", student_row["section_id"])
         .limit(1)
         .execute(),
@@ -207,7 +207,7 @@ def load_portal_snapshot(
                 id=str(row["id"]),
                 school_level=str(section["school_level"]),
                 grade_level=int(section["grade_level"]),
-                strand=str(section.get("strand") or ""),
+                strand="",
                 section=str(section["code"]),
                 subject=str(subject["name"]),
                 subject_code=str(subject.get("code") or ""),
@@ -264,7 +264,7 @@ def load_portal_snapshot(
         email=session.email,
         school_level=str(section["school_level"]),
         grade_level=int(section["grade_level"]),
-        strand=str(section.get("strand") or ""),
+        strand="",
         section=str(section["code"]),
         evaluation_period=str(active_period["code"]),
         student_number=str(student_row["student_number"]),

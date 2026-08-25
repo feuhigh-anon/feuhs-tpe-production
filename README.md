@@ -15,6 +15,7 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 - The private reconciliation workbook has been refreshed from the authoritative SIS section exports. All 75 section rows now have SIS codes, including JHS `G07-1` through `G10-2` and Grade 12 GAS `12G01a`/`12G01b`.
 - The current local baseline is 46 passing tests. The beta provisioner exists for synthetic pilot accounts, but it still reads the earlier normalized reconciliation workbook; it is not the final-student roster importer.
 - The final-roster QC workbook is `outputs/FEU_TPE_Final_Q1_2026-2027.xlsx`. It contains the Aug 25 roster and generated institutional emails, but remains blocked from import while its QC sheet has open issues.
+- The tracked `.streamlit/config.toml` uses viewer toolbar mode, hides detailed error output, and disables usage-stat collection. Streamlit host chrome and public-repository visibility are platform-level concerns and cannot be fully removed by application CSS.
 - Do not use the current deployment for real students or real evaluation responses.
 
 For architecture decisions, statistical cautions, deployment status, and the

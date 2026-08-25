@@ -15,6 +15,29 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 
 ## 2026-08-25
 
+### 16:32:00 - Removed active strand dependency and restricted viewer chrome
+
+- Removed strand matching from the student portal assignment filter and stopped
+  selecting strand metadata in the student-facing Supabase adapter. The legacy
+  database/model fields remain temporarily for compatibility with existing
+  migrations and synthetic fixtures.
+- Added tracked `.streamlit/config.toml` with viewer toolbar mode, hidden error
+  details, and disabled usage-stat collection. Local `secrets.toml` remains
+  ignored.
+- Verification: 46 unit tests, Python compilation, and Git whitespace checks
+  passed.
+- Commit: pending.
+
+### 16:10:00 - Removed personal filesystem paths from roster utilities
+
+- Replaced hard-coded `/Users/.../Downloads` defaults in the private roster
+  utilities with `Path.home()`-based paths.
+- Confirmed that no student data, credentials, or personal filesystem paths are
+  present in the current scripts or documentation.
+- Verification: Python compilation, 46 unit tests, and Git whitespace checks
+  passed.
+- Commit: pending.
+
 ### 16:03:00 - Built final-roster QC workbook from Aug 25 enrollment data
 
 - Added `scripts/build_final_roster_workbook.py`, an offline transformation that

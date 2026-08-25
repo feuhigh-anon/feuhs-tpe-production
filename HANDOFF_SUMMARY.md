@@ -35,6 +35,8 @@ A third migration, `202608240001_roster_import_staging.sql`, is deployed and syn
 - `outputs/FEU_TPE_Final_Q1_2026-2027.xlsx` is the current short-named review workbook. It contains 2,657 students and 17,592 student-assignment links after shared-class exclusion, but remains blocked because its QC sheet contains 74 High and 15 Low open issues.
 - `scripts/provision_beta.py` created a synthetic beta cohort from the earlier normalized reconciliation workbook. It is evidence of the beta workflow, not the final roster importer. Its source must be replaced or regenerated after schedule/Canvas reconciliation.
 - Production assignment policy is fail-closed: no shared-class evaluations, no daily UCSP substitutes, and only one validated teacher for each eligible student-subject assignment. Any unresolved QC issue blocks the complete import.
+- Strand/pathway metadata is no longer used by the active student assignment filter or selected by the student-facing Supabase adapter. Legacy strand columns remain in the schema and compatibility models until a later migration removes them safely.
+- `.streamlit/config.toml` is tracked with viewer toolbar mode and hidden error details; `.streamlit/secrets.toml` remains ignored.
 
 ### 2026-08-24 roster-import checkpoint
 

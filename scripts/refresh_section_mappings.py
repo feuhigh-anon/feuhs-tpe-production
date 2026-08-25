@@ -22,11 +22,11 @@ DEFAULT_RECONCILIATION = Path(
     "FEU_HS_Teacher_Performance_Evaluation_Roster_UCSP_Reconciled.xlsx"
 )
 DEFAULT_JHS = Path(
-    "/Users/ronmarccharlesms/Downloads/"
+    Path.home() / "Downloads/"
     "sis_export_csv_23_Aug_2026_2388/jhs_sections.csv"
 )
 DEFAULT_SHS = Path(
-    "/Users/ronmarccharlesms/Downloads/"
+    Path.home() / "Downloads/"
     "sis_export_csv_23_Aug_2026_2387/shs_sections.csv"
 )
 

@@ -56,7 +56,6 @@ def assignments_for_student(
         if assignment.is_active
         and assignment.school_level.casefold() == student.school_level.casefold()
         and assignment.grade_level == student.grade_level
-        and assignment.strand.casefold() == student.strand.casefold()
         and assignment.section.casefold() == student.section.casefold()
         and assignment.evaluation_period.casefold() == student.evaluation_period.casefold()
     ]
@@ -89,4 +88,3 @@ def evaluation_key(student: StudentProfile, assignment: TeacherAssignment) -> st
     """Stable key mirrored by the future PostgreSQL uniqueness constraint."""
 
     return f"{student.id}:{assignment.id}:{student.evaluation_period}".lower()
-

@@ -812,29 +812,6 @@ def display_section(student) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", compact)
 
 
-def complete_section_name(student) -> str:
-    raw_section = str(student.section or "").strip()
-    compact = re.sub(r"[^A-Za-z0-9]", "", raw_section)
-    grade = int(student.grade_level)
-    if grade <= 10:
-        match = re.search(r"(?:G(?:RADE)?)?0?\d{1,2}[-_ ]?(\d+[A-Za-z]?)$", raw_section, re.IGNORECASE)
-        section_number = match.group(1) if match else raw_section
-        return f"Grade {grade} - Section {section_number}"
-    strand_names = {
-        "AF": "Accounting and Finance",
-        "GAS": "General Academic Strand",
-        "HUMSS": "Humanities and Social Sciences",
-        "STEM": "Science, Technology, Engineering, and Mathematics",
-        "PSY": "Psychology",
-        "ME": "Media and Entertainment",
-    }
-    match = re.match(r"\d{2}([A-Z]+?)(\d+[A-Za-z]?|DEMO)$", compact, re.IGNORECASE)
-    if match:
-        strand = strand_names.get(match.group(1).upper(), match.group(1).upper())
-        return f"Grade {grade} {strand} {match.group(2)}"
-    return raw_section or f"Grade {grade}"
-
-
 SUBJECT_SHORT_NAMES = {
     "english": "ENG",
     "oral communication in context": "OCC",
