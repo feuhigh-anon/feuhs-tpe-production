@@ -402,6 +402,8 @@ def inject_styles(theme: str) -> None:
         }}
         .st-key-profile_card,
         .st-key-progress_card,
+        .st-key-pending_card,
+        .st-key-completed_card,
         [class*="st-key-assignment_card_"],
         .st-key-submitted_card {{
             box-sizing: border-box !important;
@@ -416,6 +418,8 @@ def inject_styles(theme: str) -> None:
         }}
         .st-key-profile_card > div,
         .st-key-progress_card > div,
+        .st-key-pending_card > div,
+        .st-key-completed_card > div,
         [class*="st-key-assignment_card_"] > div,
         .st-key-submitted_card > div {{
             background: var(--surface-raised) !important;
@@ -438,10 +442,29 @@ def inject_styles(theme: str) -> None:
         }}
         .home-profile-banner-copy {{
             position: absolute; left: 1rem; bottom: .78rem; z-index: 1;
-            color: #FFFFFF; font-size: .7rem; font-weight: 800; letter-spacing: .08em;
-            text-transform: uppercase;
+            color: #FFFFFF; letter-spacing: 0;
         }}
+        .home-profile-banner .student-surname {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; }}
+        .home-profile-banner .student-given-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; }}
         .home-profile-content {{ padding: 0 .15rem .15rem; }}
+        .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 5.7rem; }}
+        .home-progress-copy {{ min-width: 0; flex: 1; }}
+        .home-progress-label {{ color: var(--muted); font-size: .82rem; line-height: 1.3; }}
+        .home-progress-value {{ color: var(--primary); font-size: 1.12rem; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }}
+        .progress-circle {{
+            --progress: 0%; width: 5.7rem; height: 5.7rem; border-radius: 50%;
+            display: grid; place-items: center; flex: 0 0 auto;
+            background: conic-gradient(var(--primary) var(--progress), var(--border) 0);
+            position: relative;
+        }}
+        .progress-circle::after {{
+            content: ""; position: absolute; inset: .42rem; border-radius: 50%;
+            background: var(--surface-raised);
+        }}
+        .progress-circle-label {{ position: relative; z-index: 1; color: var(--primary); font-size: .9rem; font-weight: 850; }}
+        .home-count-card {{ min-height: 4.25rem; display: flex; flex-direction: column; justify-content: center; gap: .15rem; }}
+        .home-count-label {{ color: var(--muted); font-size: .78rem; line-height: 1.2; }}
+        .home-count-value {{ color: var(--text); font-size: 1.35rem; font-weight: 800; line-height: 1.1; }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
             width: 4rem; height: 4rem; min-width: 4rem; border-radius: 50%;
@@ -591,6 +614,8 @@ def inject_styles(theme: str) -> None:
             }}
             .agreement-scale li:last-child {{ border-bottom: 0; }}
             .agreement-scale b {{ display: inline; min-width: 1rem; margin: 0; }}
+            .progress-circle {{ width: 5rem; height: 5rem; }}
+            .home-progress-layout {{ gap: .65rem; }}
         }}
         </style>
         """,
@@ -758,6 +783,29 @@ def display_section(student) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", compact)
 
 
+def complete_section_name(student) -> str:
+    raw_section = str(student.section or "").strip()
+    compact = re.sub(r"[^A-Za-z0-9]", "", raw_section)
+    grade = int(student.grade_level)
+    if grade <= 10:
+        match = re.search(r"(?:G(?:RADE)?)?0?\d{1,2}[-_ ]?(\d+[A-Za-z]?)$", raw_section, re.IGNORECASE)
+        section_number = match.group(1) if match else raw_section
+        return f"Grade {grade} - Section {section_number}"
+    strand_names = {
+        "AF": "Accounting and Finance",
+        "GAS": "General Academic Strand",
+        "HUMSS": "Humanities and Social Sciences",
+        "STEM": "Science, Technology, Engineering, and Mathematics",
+        "PSY": "Psychology",
+        "ME": "Media and Entertainment",
+    }
+    match = re.match(r"\d{2}([A-Z]+?)(\d+[A-Za-z]?|DEMO)$", compact, re.IGNORECASE)
+    if match:
+        strand = strand_names.get(match.group(1).upper(), match.group(1).upper())
+        return f"Grade {grade} {strand} {match.group(2)}"
+    return raw_section or f"Grade {grade}"
+
+
 SUBJECT_SHORT_NAMES = {
     "english": "ENG",
     "oral communication in context": "OCC",
@@ -805,14 +853,14 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     render_header()
     completed = len(submitted)
     total = len(assignments)
-    profile_parts = [
+    progress = completed / total if total else 0
+    surname, given_name = student_name_lines(student.name)
+    architecture_uri = asset_data_uri("feu-architecture-line-art.png")
+    profile_meta = " · ".join(
         value
         for value in (getattr(student, "student_number", ""), display_section(student))
         if value
-    ]
-    profile_meta = " · ".join(profile_parts)
-    surname, given_name = student_name_lines(student.name)
-    architecture_uri = asset_data_uri("feu-architecture-line-art.png")
+    )
 
     with st.container(border=True, key="profile_card"):
         st.markdown(
@@ -820,17 +868,15 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             <div class="portal-card">
               <div class="home-profile-banner">
                 <img src="{architecture_uri}" alt="">
-                <div class="home-profile-banner-copy">FEU High School</div>
+                                <div class="student-name-block home-profile-banner-copy">
+                                    <div class="student-surname">{html.escape(surname)}</div>
+                                    <div class="student-given-name">{html.escape(given_name)}</div>
+                                </div>
               </div>
               <div class="home-profile-content">
                 <div class="profile-row">
                   <div style="flex:1">
-                    <div class="student-name-block">
-                      <div class="student-surname">{html.escape(surname)}</div>
-                      <div class="student-given-name">{html.escape(given_name)}</div>
-                    </div>
-                    <div class="gold-rule"></div>
-                    <div class="profile-meta">{html.escape(profile_meta)}</div>
+                                        <div class="profile-meta">{html.escape(profile_meta)}</div>
                   </div>
                 </div>
               </div>
@@ -842,24 +888,34 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     with st.container(border=True, key="progress_card"):
         st.markdown(
             f"""
-            <div class="period-row">
-              <div>
-                <div class="period-label">Current evaluation period</div>
-                <div class="period-value">{html.escape(student.evaluation_period)}</div>
+            <div class="home-progress-layout">
+              <div class="home-progress-copy">
+                <div class="home-progress-label">Evaluation period</div>
+                <div class="home-progress-value">{html.escape(student.evaluation_period)}</div>
+                <div class="progress-count"><strong>{completed} of {total}</strong> completed</div>
+              </div>
+              <div class="progress-circle" style="--progress:{progress:.0%}">
+                <div class="progress-circle-label">{progress:.0%}</div>
               </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="gold-rule"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-heading">Your Evaluation Progress</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="progress-count"><strong>{completed} of {total}</strong> completed</div>',
-            unsafe_allow_html=True,
-        )
-        progress = completed / total if total else 0
-        st.progress(progress)
-        st.caption(f"{progress:.0%} Complete")
+
+    pending_count = total - completed
+    pending_column, completed_column = st.columns(2, gap="small")
+    with pending_column:
+        with st.container(border=True, key="pending_card"):
+            st.markdown(
+                f'<div class="home-count-card"><div class="home-count-label">Pending</div><div class="home-count-value">{pending_count}</div></div>',
+                unsafe_allow_html=True,
+            )
+    with completed_column:
+        with st.container(border=True, key="completed_card"):
+            st.markdown(
+                f'<div class="home-count-card"><div class="home-count-label">Completed</div><div class="home-count-value">{completed}</div></div>',
+                unsafe_allow_html=True,
+            )
 
     pending = pending_assignments(assignments, submitted)
     if pending:
