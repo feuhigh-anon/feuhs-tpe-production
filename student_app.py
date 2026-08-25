@@ -388,12 +388,16 @@ def inject_styles(theme: str) -> None:
         }}
         [data-testid="stVerticalBlockBorderWrapper"] {{
             border: 1px solid var(--border) !important;
+            border-top: 3px solid var(--gold) !important;
             border-radius: 6px !important;
             background: var(--surface-raised);
-            box-shadow: 0 3px 12px var(--shadow);
+            box-shadow: 0 4px 16px var(--shadow), inset 0 0 0 1px rgba(255,255,255,.55);
         }}
         [data-testid="stVerticalBlockBorderWrapper"] > div {{
             border-color: var(--border) !important;
+            background: var(--surface-raised) !important;
+        }}
+        [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {{
             background: var(--surface-raised) !important;
         }}
         .portal-card {{ padding: .25rem .15rem; }}
