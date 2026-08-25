@@ -476,6 +476,14 @@ def inject_styles(theme: str) -> None:
         }}
         .progress-circle-label {{ position: relative; z-index: 1; color: var(--primary); font-size: .9rem; font-weight: 850; }}
         .home-count-card {{ height: 4.1rem; display: flex; flex-direction: column; justify-content: center; gap: .15rem; }}
+        .st-key-home_status_grid [data-testid="stHorizontalBlock"] {{
+            display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .65rem !important; width: 100% !important; align-items: stretch;
+        }}
+        .st-key-home_status_grid [data-testid="stColumn"] {{
+            width: auto !important; min-width: 0 !important; max-width: none !important;
+            flex: none !important;
+        }}
         .home-count-label {{ color: var(--muted); font-size: .78rem; line-height: 1.2; }}
         .home-count-value {{ color: var(--text); font-size: 1.35rem; font-weight: 800; line-height: 1.1; }}
         .deadline-value {{ color: var(--primary); font-size: 1.22rem; font-weight: 800; line-height: 1.15; }}
@@ -636,6 +644,7 @@ def inject_styles(theme: str) -> None:
             .agreement-scale b {{ display: inline; min-width: 1rem; margin: 0; }}
             .progress-circle {{ width: 3.75rem; height: 3.75rem; }}
             .home-progress-layout {{ gap: .65rem; }}
+            .st-key-home_status_grid [data-testid="stHorizontalBlock"] {{ grid-template-columns: 1fr; }}
         }}
         </style>
         """,
@@ -938,38 +947,37 @@ def render_home(
         )
 
     pending_count = total - completed
-    pending_column, completed_column = st.columns(2, gap="small")
-    with pending_column:
+    latest = max(submissions, key=lambda item: item.submitted_at, default=None)
+    latest_assignment = next(
+        (item for item in assignments if latest and item.id == latest.assignment_id),
+        None,
+    )
+    if latest is None or latest_assignment is None:
+        activity_html = (
+            '<div class="home-count-card"><div class="home-count-label">Most recent evaluation</div>'
+            '<div class="activity-copy">Your evaluation history will appear here after your first submission.</div></div>'
+        )
+    else:
+        submitted_at = display_datetime(latest.submitted_at)
+        activity_html = (
+            f'<div class="home-count-card"><div class="home-count-label">Most recent evaluation</div>'
+            f'<div class="activity-copy"><strong>{html.escape(assignment_subject_mark(latest_assignment))}</strong><br>'
+            f'{html.escape(latest_assignment.teacher_name)}<br>'
+            f'<span class="activity-date">{submitted_at:%B %d, %Y %I:%M %p}</span></div></div>'
+        )
+
+    with st.container(key="home_status_grid"):
+        left_column, right_column = st.columns(2, gap="small")
+    with left_column:
         with st.container(border=True, key="pending_card"):
             st.markdown(
                 f'<div class="home-count-card"><div class="home-count-label">Days remaining</div><div class="deadline-value">{remaining_days if remaining_days is not None else "n/a"}</div><div class="deadline-date">Deadline: {display_datetime(student.evaluation_closes_at):%B %d, %Y} </div></div>' if remaining_days is not None else
                 '<div class="home-count-card"><div class="home-count-label">Days remaining</div><div class="deadline-value">n/a</div><div class="deadline-date">Deadline is not configured</div></div>',
                 unsafe_allow_html=True,
             )
-    with completed_column:
+    with right_column:
         with st.container(border=True, key="completed_card"):
-            latest = max(submissions, key=lambda item: item.submitted_at, default=None)
-            latest_assignment = next(
-                (item for item in assignments if latest and item.id == latest.assignment_id),
-                None,
-            )
-            if latest is None or latest_assignment is None:
-                activity_html = (
-                    '<div class="home-count-card"><div class="home-count-label">Most recent evaluation</div>'
-                    '<div class="activity-copy">Your evaluation history will appear here after your first submission.</div></div>'
-                )
-            else:
-                submitted_at = display_datetime(latest.submitted_at)
-                activity_html = (
-                    f'<div class="home-count-card"><div class="home-count-label">Most recent evaluation</div>'
-                    f'<div class="activity-copy"><strong>{html.escape(assignment_subject_mark(latest_assignment))}</strong><br>'
-                    f'{html.escape(latest_assignment.teacher_name)}<br>'
-                    f'<span class="activity-date">{submitted_at:%B %d, %Y %I:%M %p}</span></div></div>'
-                )
-            st.markdown(
-                activity_html,
-                unsafe_allow_html=True,
-            )
+            st.markdown(activity_html, unsafe_allow_html=True)
 
     pending = pending_assignments(assignments, submitted)
     if pending:
