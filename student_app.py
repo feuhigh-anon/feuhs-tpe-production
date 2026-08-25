@@ -401,7 +401,6 @@ def inject_styles(theme: str) -> None:
             background: var(--surface-raised) !important;
         }}
         .st-key-profile_card,
-        .st-key-period_card,
         .st-key-progress_card,
         [class*="st-key-assignment_card_"],
         .st-key-submitted_card {{
@@ -416,20 +415,33 @@ def inject_styles(theme: str) -> None:
             box-shadow: 0 5px 18px var(--shadow), inset 0 0 0 1px var(--border) !important;
         }}
         .st-key-profile_card > div,
-        .st-key-period_card > div,
         .st-key-progress_card > div,
         [class*="st-key-assignment_card_"] > div,
         .st-key-submitted_card > div {{
             background: var(--surface-raised) !important;
         }}
         .st-key-profile_card .portal-card,
-        .st-key-period_card .period-row,
         .st-key-progress_card,
         [class*="st-key-assignment_card_"] .assignment-copy,
         .st-key-submitted_card .submission-copy {{
             margin: 0 !important;
         }}
         .portal-card {{ padding: .25rem .15rem; }}
+        .home-profile-banner {{
+            position: relative; min-height: 6.25rem; margin: -1.05rem -1rem 1rem;
+            overflow: hidden; background: var(--deep); border-radius: 5px 5px 0 0;
+            border-bottom: 3px solid var(--gold);
+        }}
+        .home-profile-banner img {{
+            position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+            object-position: center 58%; opacity: .38; filter: brightness(1.15);
+        }}
+        .home-profile-banner-copy {{
+            position: absolute; left: 1rem; bottom: .78rem; z-index: 1;
+            color: #FFFFFF; font-size: .7rem; font-weight: 800; letter-spacing: .08em;
+            text-transform: uppercase;
+        }}
+        .home-profile-content {{ padding: 0 .15rem .15rem; }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
             width: 4rem; height: 4rem; min-width: 4rem; border-radius: 50%;
@@ -445,7 +457,7 @@ def inject_styles(theme: str) -> None:
         .profile-name, .assignment-subject {{ font-size: 1.05rem; font-weight: 750; line-height: 1.25; }}
         .profile-meta, .assignment-teacher, .submission-meta {{ color: var(--muted); font-size: .86rem; line-height: 1.4; }}
         .gold-rule {{ height: 2px; background: var(--gold); margin: .45rem 0 .55rem; width: 100%; }}
-        .period-row {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .15rem; }}
+        .period-row {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; }}
         .period-label {{ color: var(--muted); font-size: .82rem; }}
         .period-value {{ color: var(--primary); font-size: 1.12rem; font-weight: 750; }}
         .progress-count {{ margin: .35rem 0; font-size: 1.08rem; }}
@@ -799,20 +811,27 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
         if value
     ]
     profile_meta = " · ".join(profile_parts)
+    surname, given_name = student_name_lines(student.name)
+    architecture_uri = asset_data_uri("feu-architecture-line-art.png")
 
     with st.container(border=True, key="profile_card"):
-        surname, given_name = student_name_lines(student.name)
         st.markdown(
             f"""
             <div class="portal-card">
-              <div class="profile-row">
-                                <div style="flex:1">
-                                    <div class="student-name-block">
-                                        <div class="student-surname">{html.escape(surname)}</div>
-                                        <div class="student-given-name">{html.escape(given_name)}</div>
-                                    </div>
-                  <div class="gold-rule"></div>
-                  <div class="profile-meta">{html.escape(profile_meta)}</div>
+              <div class="home-profile-banner">
+                <img src="{architecture_uri}" alt="">
+                <div class="home-profile-banner-copy">FEU High School</div>
+              </div>
+              <div class="home-profile-content">
+                <div class="profile-row">
+                  <div style="flex:1">
+                    <div class="student-name-block">
+                      <div class="student-surname">{html.escape(surname)}</div>
+                      <div class="student-given-name">{html.escape(given_name)}</div>
+                    </div>
+                    <div class="gold-rule"></div>
+                    <div class="profile-meta">{html.escape(profile_meta)}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -820,20 +839,19 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             unsafe_allow_html=True,
         )
 
-    with st.container(border=True, key="period_card"):
+    with st.container(border=True, key="progress_card"):
         st.markdown(
             f"""
             <div class="period-row">
               <div>
-                <div class="period-label">Evaluation Period</div>
+                <div class="period-label">Current evaluation period</div>
                 <div class="period-value">{html.escape(student.evaluation_period)}</div>
               </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-
-    with st.container(border=True, key="progress_card"):
+        st.markdown('<div class="gold-rule"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-heading">Your Evaluation Progress</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="progress-count"><strong>{completed} of {total}</strong> completed</div>',
