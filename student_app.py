@@ -555,9 +555,15 @@ def inject_styles(theme: str) -> None:
         [data-testid="stTextArea"] > div > div {{ border-color: var(--border); background: var(--surface); }}
         [data-testid="stTextArea"] textarea::placeholder {{ color: var(--muted) !important; opacity: 1 !important; }}
         .student-name-block {{ display: flex; flex-direction: column; gap: .08rem; }}
-        .student-surname {{ color: var(--primary); font-size: 1.35rem; font-weight: 850; line-height: 1.05; letter-spacing: 0; }}
-        .student-given-name {{ color: var(--text); font-size: 1.1rem; font-weight: 650; line-height: 1.15; }}
+        .student-surname {{ color: var(--primary); font-size: 1.55rem; font-weight: 850; line-height: 1.05; letter-spacing: 0; text-transform: uppercase; }}
+        .student-given-name {{ color: var(--text); font-size: 1.2rem; font-weight: 650; line-height: 1.15; }}
         .st-key-submitted_card .submission-copy {{ padding-bottom: .35rem; }}
+        .st-key-profile_card [role="separator"] {{
+            border-top: 1px solid var(--border) !important;
+            margin: 1rem 0 .8rem !important;
+            opacity: 1 !important;
+        }}
+        .history-flavor {{ color: var(--muted); font-size: .78rem; line-height: 1.45; margin: -.35rem 0 1rem; }}
         [data-testid="stAlert"] {{ border-radius: 6px; }}
         @media (max-width: 520px) {{
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
@@ -1157,6 +1163,10 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
 def render_history(assignments, submitted: frozenset[str]) -> None:
     render_header()
     st.markdown('<div class="section-heading">My Evaluations</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="history-flavor">A record of the evaluations you have completed during this evaluation period.</div>',
+        unsafe_allow_html=True,
+    )
     completed = [assignment for assignment in assignments if assignment.id in submitted]
     if not completed:
         st.markdown('<div class="empty-state">No evaluations submitted yet.</div>', unsafe_allow_html=True)
