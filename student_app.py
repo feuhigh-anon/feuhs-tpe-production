@@ -553,6 +553,11 @@ def inject_styles(theme: str) -> None:
         }}
         textarea, input {{ color: var(--text) !important; background: var(--surface) !important; }}
         [data-testid="stTextArea"] > div > div {{ border-color: var(--border); background: var(--surface); }}
+        [data-testid="stTextArea"] textarea::placeholder {{ color: var(--muted) !important; opacity: 1 !important; }}
+        .student-name-block {{ display: flex; flex-direction: column; gap: .08rem; }}
+        .student-surname {{ color: var(--primary); font-size: 1.35rem; font-weight: 850; line-height: 1.05; letter-spacing: 0; }}
+        .student-given-name {{ color: var(--text); font-size: 1.1rem; font-weight: 650; line-height: 1.15; }}
+        .st-key-submitted_card .submission-copy {{ padding-bottom: .35rem; }}
         [data-testid="stAlert"] {{ border-radius: 6px; }}
         @media (max-width: 520px) {{
             [data-testid="stMainBlockContainer"] {{ box-shadow: none; }}
@@ -763,6 +768,17 @@ def assignment_subject_mark(assignment: TeacherAssignment) -> str:
     return subject_mark(assignment.subject, getattr(assignment, "subject_code", ""))
 
 
+def student_name_lines(name: str) -> tuple[str, str]:
+    value = " ".join(str(name or "").split())
+    if "," in value:
+        surname, given_name = value.split(",", 1)
+        return surname.strip().upper(), given_name.strip()
+    words = value.split()
+    if len(words) <= 1:
+        return value.upper(), ""
+    return words[-1].upper(), " ".join(words[:-1])
+
+
 def display_datetime(value: datetime) -> datetime:
     current = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     return current.astimezone(DISPLAY_TIMEZONE)
@@ -780,12 +796,16 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
     profile_meta = " · ".join(profile_parts)
 
     with st.container(border=True, key="profile_card"):
+        surname, given_name = student_name_lines(student.name)
         st.markdown(
             f"""
             <div class="portal-card">
               <div class="profile-row">
-                <div style="flex:1">
-                  <div class="profile-name">{html.escape(student.name)}</div>
+                                <div style="flex:1">
+                                    <div class="student-name-block">
+                                        <div class="student-surname">{html.escape(surname)}</div>
+                                        <div class="student-given-name">{html.escape(given_name)}</div>
+                                    </div>
                   <div class="gold-rule"></div>
                   <div class="profile-meta">{html.escape(profile_meta)}</div>
                 </div>
@@ -1109,7 +1129,7 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
               <div>
                 <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
                 <div class="assignment-teacher">{html.escape(assignment.subject)}</div>
-                <div class="submission-meta">Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div>
+                <div class="submission-meta" style="padding-bottom:.35rem">Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div>
               </div>
             </div>
             """,
