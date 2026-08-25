@@ -13,6 +13,41 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 - Do not include passwords, API keys, student rosters, response data, or other
   private information.
 
+## 2026-08-25
+
+### 16:03:00 - Built final-roster QC workbook from Aug 25 enrollment data
+
+- Added `scripts/build_final_roster_workbook.py`, an offline transformation that
+  preserves the prior reconciliation workbook and writes a new short-named
+  review workbook.
+- Generated `outputs/FEU_TPE_Final_Q1_2026-2027.xlsx` with 2,657 final-roster
+  students, deterministic institutional emails, and 17,592 student-assignment
+  links after excluding 37 shared teacher-assignment rows.
+- Confirmed zero duplicate student numbers, zero blank generated emails, and
+  zero duplicate student-assignment pairs.
+- The workbook remains review-only: its QC sheet contains 74 High and 15 Low
+  open issues. No Supabase import or activation was performed.
+- Verification: 46 unit tests passed.
+- Commit: pending.
+
+### 15:56:25 - Synchronized hosted staging state and refreshed SIS section mappings
+
+- Confirmed with `supabase migration list` that all three source-controlled
+  migrations match the remote hosted project, including roster staging
+  migration `202608240001`.
+- Added `scripts/refresh_section_mappings.py`, an offline fail-closed utility
+  that reads the authoritative JHS and SHS SIS section exports and refuses
+  ambiguous or missing mappings.
+- Generated a private refreshed reconciliation workbook with SIS codes for all
+  75 section rows, including JHS `G07-1` through `G10-2` and SHS GAS `12G01a`
+  and `12G01b`.
+- Documented the existing workbook-based beta provisioner and its current
+  limitation: beta credentials were generated from the prior reconciled
+  workbook, not yet from the final Aug 25 enrollment roster.
+- Verification: 46 unit tests passed; no roster, credentials, responses, or
+  source workbooks were added to Git or uploaded to Supabase.
+- Commit: pending.
+
 ## 2026-08-24
 
 ### 12:42:52 - Added mixed-cohort alpha provisioning and private response review

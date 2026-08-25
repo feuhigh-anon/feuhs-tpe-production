@@ -13,10 +13,10 @@ The repository contains three ordered migrations:
    staging tables, database validation issues, import provenance, and a
    service-role-only activation transaction.
 
-The first two migrations were applied to the hosted project on 2026-08-23. The
-third migration is source-controlled and locally tested but must still be
-reviewed with `supabase db push --dry-run` and explicitly deployed. They contain
-no real student roster, password, credential, or evaluation response. The
+All three migrations are now applied to the hosted project. This was confirmed
+with `supabase migration list`, which reports matching local and remote versions
+for `202608230001`, `202608230002`, and `202608240001`. They contain no real
+student roster, password, credential, or evaluation response. The
 Streamlit authentication/data adapter, synthetic alpha provisioner, and
 alpha-only live security verifier are implemented. The hosted login and normal
 student workflow have passed manual testing with synthetic accounts. The
@@ -97,6 +97,14 @@ deactivates superseded period assignments, records batch provenance, and marks
 the previous activated batch as superseded. Legitimate shared classes remain
 distinct teacher assignments; the student-assignment rows determine which
 teacher or teachers each student evaluates.
+
+The final enrollment roster is the Aug 25 workbook; student emails are derived
+as `{student_number}@feuhighschool.edu.ph`. Teacher and subject assignments
+must be reconciled against both Canvas and the administrative schedule. Shared
+classes are excluded from evaluation, daily UCSP substitutes are excluded, and
+only a single validated long-term substitute assignment may remain. Any
+unresolved identity, section, subject, teacher, duplicate, or assignment issue
+blocks the entire import.
 
 ## Configure Authentication for Alpha Testing
 

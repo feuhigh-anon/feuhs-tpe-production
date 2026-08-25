@@ -24,7 +24,17 @@ The student section will come from the authenticated database profile. Students 
 
 The repository now includes an initial Supabase migration with indexed foreign keys, RLS policies, explicit student-to-teaching-assignment authorization, immutable versioned question banks, a unique submission constraint, and an atomic `submit_evaluation` RPC. A second migration publishes the current SHS and JHS instruments as version 1. On 2026-08-23, both migrations were applied successfully to the linked hosted Supabase project through CLI `2.115.0`; the Table Editor shows all 14 expected tables. The public Streamlit deployment is connected using only the project URL and publishable key. Synthetic SHS and JHS cohorts passed the manual workflow and separate 26-of-26 hosted security verification runs.
 
-A third migration, `202608240001_roster_import_staging.sql`, is now prepared but not yet deployed. It introduces private roster batches, normalized staging tables, database-generated validation issues, import provenance on active assignments, and service-role-only validation/activation functions. Activation is transactional, requires a draft period with no submissions, preserves shared teachers as separate assignments, and supersedes the previous active batch. `scripts/prepare_roster_import.py` validates the private workbook offline and emits owner-only staging files only after a clean pass.
+A third migration, `202608240001_roster_import_staging.sql`, is deployed and synchronized with the hosted project. It introduces private roster batches, normalized staging tables, database-generated validation issues, import provenance on active assignments, and service-role-only validation/activation functions. Activation is transactional, requires a draft period with no submissions, preserves assignment provenance, and supersedes the previous active batch. `scripts/prepare_roster_import.py` validates the private workbook offline and emits owner-only staging files only after a clean pass.
+
+### 2026-08-25 SIS mapping and beta checkpoint
+
+- The Aug 25 enrollment workbook is the authoritative final student roster. Student emails will be derived as `{student_number}@feuhighschool.edu.ph`; the source workbook itself does not contain email addresses.
+- JHS SIS exports resolve `Grade 7-1` through `Grade 10-2` to `G07-1` through `G10-2`. SHS SIS exports resolve `12GAS-1A` and `12GAS-1B` to `12G01a` and `12G01b`.
+- `scripts/refresh_section_mappings.py` was added as an offline, fail-closed mapping refresh utility. It generated a private refreshed workbook with SIS codes populated for all 75 section rows.
+- The roster staging migration is deployed, but no final student roster has been activated in Supabase.
+- `outputs/FEU_TPE_Final_Q1_2026-2027.xlsx` is the current short-named review workbook. It contains 2,657 students and 17,592 student-assignment links after shared-class exclusion, but remains blocked because its QC sheet contains 74 High and 15 Low open issues.
+- `scripts/provision_beta.py` created a synthetic beta cohort from the earlier normalized reconciliation workbook. It is evidence of the beta workflow, not the final roster importer. Its source must be replaced or regenerated after schedule/Canvas reconciliation.
+- Production assignment policy is fail-closed: no shared-class evaluations, no daily UCSP substitutes, and only one validated teacher for each eligible student-subject assignment. Any unresolved QC issue blocks the complete import.
 
 ### 2026-08-24 roster-import checkpoint
 
@@ -52,7 +62,7 @@ A third migration, `202608240001_roster_import_staging.sql`, is now prepared but
 - `scripts/provision_alpha.py` can create separate SHS or JHS cohorts of 2-10 fictional alpha accounts and isolated synthetic rosters using a locally entered secret key; generated credentials remain under ignored `exports/`.
 - Two fictional accounts and two synthetic assignments are provisioned, and the hosted login and normal student workflow passed manual testing.
 - `scripts/verify_live_security.py` performs alpha-only hosted checks for anonymous access, identity and roster isolation, response confidentiality, closed-period and duplicate rejection, logout, elevated-operator access, and cleanup. A signed-in `admin` profile remains a separate future test before an administrator interface is deployed.
-- The local suite contains 43 passing tests, including nine roster staging/preparation checks, five original migration-contract checks, six Supabase adapter checks, seven level-aware live-verifier safety checks, and a student-facing branding/privacy-content guard.
+- The local suite currently contains 46 passing tests, including roster staging/preparation checks, migration-contract checks, Supabase adapter checks, level-aware live-verifier safety checks, and student-facing branding/privacy-content guards.
 - The hosted verifier passed 26 of 26 checks separately for SHS and JHS on 2026-08-23, including anonymous denial, identity and roster isolation, response confidentiality, submission enforcement, logout, elevated-operator visibility, and verified fixture cleanup. Sanitized evidence is retained in `docs/live_security_verification_20260823.md` and `docs/live_security_verification_jhs_20260823.md`.
 
 ## 2. Requirements Established in the Conversation
@@ -112,8 +122,11 @@ The fixed 50-30-20 policy was implemented as an operational default, not because
 | `supabase/migrations/202608240001_roster_import_staging.sql` | Private roster batches and staging tables, validation issues, assignment provenance, and elevated transactional activation. |
 | `docs/supabase_setup.md` | Hosted project, migration, authentication, secret, and verification procedure. |
 | `scripts/provision_alpha.py` | Local administrator-only creation of fictional alpha accounts, roster assignments, and owner-only credential output. |
+| `scripts/provision_beta.py` | Local administrator-only workbook-based synthetic beta provisioning; currently uses the prior normalized reconciliation workbook and must not be used for production roster import. |
 | `scripts/verify_live_security.py` | Alpha-only destructive-but-reversible hosted RLS and submission-policy verification with hidden key prompts and cleanup. |
 | `scripts/prepare_roster_import.py` | Offline workbook validation and owner-only normalized staging-bundle preparation; performs no upload. |
+| `scripts/refresh_section_mappings.py` | Offline fail-closed SIS section-code refresh from the authoritative JHS and SHS SIS section exports. |
+| `scripts/build_final_roster_workbook.py` | Offline final-roster transformation for QC review; writes a short-named workbook and performs no upload or activation. |
 
 ### `feval/` package
 

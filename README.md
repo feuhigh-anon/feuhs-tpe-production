@@ -7,11 +7,14 @@ This repository contains a mobile-first Streamlit student evaluation portal and 
 - `student_app.py` is deployed as a public-safe fictional preview at [feuhighschool-teacher-performance-evaluation.streamlit.app](https://feuhighschool-teacher-performance-evaluation.streamlit.app/), with FEU green/yellow styling, light/dark modes, roster-filtered assignments, a four-step evaluation instrument, review, submission confirmation, and history.
 - `app.py` is an internal analysis prototype for local SharePoint/MS Forms exports.
 - All source-controlled identities are synthetic. Raw exports, rosters, credentials, and production responses are excluded from Git.
-- The hosted Supabase project is created and linked through Supabase CLI. The first two source-controlled migrations are applied, creating 14 tables, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC. A third reviewed migration adds private batch-based roster staging and is pending CLI deployment.
+- The hosted Supabase project is created and linked through Supabase CLI. All three source-controlled migrations match the remote project, creating 14 core tables plus private batch-based roster staging, RLS policies, immutable versioned question banks, database-enforced duplicate prevention, and the atomic `submit_evaluation` RPC.
 - The published SHS and JHS version-1 instruments contain 28 required items each: 25 Likert items and 3 qualitative prompts. The hosted database therefore starts with 2 question banks and 56 question items.
 - The public deployment is connected with the Supabase project URL and publishable key. Its FEU-branded login, authenticated roster loading, evaluation submission, duplicate filtering, logout, and mobile workflow have passed manual testing with two synthetic students.
 - The login identifies the service as the Teacher Performance Evaluation, explains the First Quarter SY 2026-2027 scope and response scale, requires qualitative responses, provides the EdTech support address, and includes a concise Republic Act No. 10173 privacy notice.
 - Automated hosted RLS and submission-policy verification passed all 26 checks separately for SHS and JHS on 2026-08-23, including cleanup. Sanitized records are in `docs/live_security_verification_20260823.md` and `docs/live_security_verification_jhs_20260823.md`.
+- The private reconciliation workbook has been refreshed from the authoritative SIS section exports. All 75 section rows now have SIS codes, including JHS `G07-1` through `G10-2` and Grade 12 GAS `12G01a`/`12G01b`.
+- The current local baseline is 46 passing tests. The beta provisioner exists for synthetic pilot accounts, but it still reads the earlier normalized reconciliation workbook; it is not the final-student roster importer.
+- The final-roster QC workbook is `outputs/FEU_TPE_Final_Q1_2026-2027.xlsx`. It contains the Aug 25 roster and generated institutional emails, but remains blocked from import while its QC sheet has open issues.
 - Do not use the current deployment for real students or real evaluation responses.
 
 For architecture decisions, statistical cautions, deployment status, and the
@@ -114,6 +117,13 @@ secret key through a hidden prompt. It writes a submission summary and a
 question-level response CSV under Git-ignored `exports/`. Never place the
 secret key in Streamlit Community Cloud or in a command-line argument.
 
+The current workbook-based beta pilot is provisioned separately with
+`scripts/provision_beta.py`. It uses selected teacher/section rows from the
+private normalized `Teaching Assignments` sheet and writes synthetic beta
+credentials under ignored `exports/`. It must not be used for production
+students until it is rebuilt against the final roster and schedule/Canvas
+reconciliation.
+
 Do not make production schema changes directly in the Table Editor. Add a new
 timestamped migration, review it, commit it, and deploy it through the CLI.
 Local CLI state under `supabase/.temp/` is ignored by Git.
@@ -133,6 +143,18 @@ The command makes no network request. It writes private staging CSVs only when
 there are no validation errors; otherwise it writes an owner-only validation
 report under ignored `exports/`. Shared section-subject classes remain separate
 teacher assignments and are reported for review rather than collapsed.
+
+Refresh SIS section codes in a private reconciliation workbook from the JHS and
+SHS SIS section exports with:
+
+```bash
+.venv/bin/python scripts/refresh_section_mappings.py \
+  --input outputs/ucsp_roster_reconciliation_20260824/FEU_HS_Teacher_Performance_Evaluation_Roster_UCSP_Reconciled.xlsx
+```
+
+The utility writes a new `*_SectionsRefreshed.xlsx` workbook, never overwrites
+the source workbook, and stops on missing or ambiguous mappings. The refreshed
+workbook remains private and is not a production import by itself.
 
 ## Security Boundary
 
@@ -183,8 +205,12 @@ feval/
 scripts/
   provision_alpha.py
   provision_mixed_alpha.py
+  provision_beta.py
   export_alpha_submissions.py
   verify_live_security.py
+  prepare_roster_import.py
+  refresh_section_mappings.py
+  build_final_roster_workbook.py
 tests/
   test_alpha_submission_export.py
   test_live_security.py
@@ -197,6 +223,7 @@ supabase/
   migrations/
     202608230001_initial_schema.sql
     202608230002_question_banks_v1.sql
+    202608240001_roster_import_staging.sql
 docs/
   live_security_verification_20260823.md
   live_security_verification_jhs_20260823.md
