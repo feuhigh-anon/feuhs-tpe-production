@@ -152,7 +152,7 @@ def demo_portal_data():
     assignments = assignments_for_student(student, DEMO_ASSIGNMENTS)
     submitted = submitted_assignment_ids(student, st.session_state.submissions)
     block = DEFAULT_QUESTION_BLOCKS[student.school_level.lower()]
-    return student, assignments, submitted, block
+    return student, assignments, submitted, block, tuple(st.session_state.submissions)
 
 
 def authenticated_portal_data(settings: SupabaseSettings):
@@ -167,7 +167,7 @@ def authenticated_portal_data(settings: SupabaseSettings):
         snapshot = load_portal_snapshot(client, refreshed_session)
         st.session_state.supabase_snapshot = snapshot
     submitted = submitted_assignment_ids(snapshot.student, snapshot.submissions)
-    return snapshot.student, snapshot.assignments, submitted, snapshot.question_block
+    return snapshot.student, snapshot.assignments, submitted, snapshot.question_block, snapshot.submissions
 
 
 def current_assignment(assignments: tuple[TeacherAssignment, ...]) -> TeacherAssignment | None:
@@ -478,6 +478,8 @@ def inject_styles(theme: str) -> None:
         .deadline-date {{ color: var(--text); font-size: .78rem; line-height: 1.3; margin-top: .2rem; }}
         .checklist-copy {{ color: var(--muted); font-size: .78rem; line-height: 1.45; }}
         .checklist-copy strong {{ color: var(--text); }}
+        .activity-copy {{ color: var(--muted); font-size: .78rem; line-height: 1.45; }}
+        .activity-copy strong {{ color: var(--text); }}
         .profile-row, .assignment-copy, .submission-copy {{ display: flex; gap: .85rem; align-items: center; }}
         .avatar {{
             width: 4rem; height: 4rem; min-width: 4rem; border-radius: 50%;
@@ -871,7 +873,12 @@ def days_remaining(student, now: datetime | None = None) -> int | None:
     return max(0, (closes_at - current).days)
 
 
-def render_home(student, assignments, submitted: frozenset[str]) -> None:
+def render_home(
+    student,
+    assignments,
+    submitted: frozenset[str],
+    submissions: tuple[SubmissionRecord, ...],
+) -> None:
     render_header()
     completed = len(submitted)
     total = len(assignments)
@@ -936,8 +943,26 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             )
     with completed_column:
         with st.container(border=True, key="completed_card"):
+            latest = max(submissions, key=lambda item: item.submitted_at, default=None)
+            latest_assignment = next(
+                (item for item in assignments if latest and item.id == latest.assignment_id),
+                None,
+            )
+            if latest is None or latest_assignment is None:
+                activity_html = (
+                    '<div class="home-count-card"><div class="home-count-label">Recent activity</div>'
+                    '<div class="activity-copy">Your evaluation history will appear here after your first submission.</div></div>'
+                )
+            else:
+                submitted_at = display_datetime(latest.submitted_at)
+                activity_html = (
+                    f'<div class="home-count-card"><div class="home-count-label">Recent activity</div>'
+                    f'<div class="activity-copy"><strong>{html.escape(latest_assignment.subject)}</strong><br>'
+                    f'{html.escape(latest_assignment.teacher_name)}<br>'
+                    f'Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div></div>'
+                )
             st.markdown(
-                '<div class="home-count-card"><div class="home-count-label">Evaluation checklist</div><div class="checklist-copy"><strong>25</strong> rating statements<br><strong>3</strong> feedback prompts</div></div>',
+                activity_html,
                 unsafe_allow_html=True,
             )
 
@@ -1331,7 +1356,7 @@ def main() -> None:
     initialize_state(mode)
     inject_styles(st.session_state.portal_theme)
     if settings is None:
-        student, assignments, submitted, block = demo_portal_data()
+        student, assignments, submitted, block, submissions = demo_portal_data()
     else:
         if not isinstance(st.session_state.get("supabase_session"), AuthSession):
             render_login(settings)
@@ -1350,13 +1375,13 @@ def main() -> None:
         if portal is None:
             render_login(settings)
             return
-        student, assignments, submitted, block = portal
+        student, assignments, submitted, block, submissions = portal
 
     assignment = current_assignment(assignments)
     page = st.session_state.portal_page
 
     if page == "home":
-        render_home(student, assignments, submitted)
+        render_home(student, assignments, submitted, submissions)
     elif page == "teachers":
         render_teachers(assignments, submitted)
     elif page == "evaluation":
