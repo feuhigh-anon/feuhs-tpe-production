@@ -819,18 +819,19 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             """,
             unsafe_allow_html=True,
         )
-        with st.container(border=True, key="period_card"):
-                st.markdown(
-                        f"""
-                        <div class="period-row">
-                            <div>
-                                <div class="period-label">Evaluation Period</div>
-                                <div class="period-value">{html.escape(student.evaluation_period)}</div>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                )
+
+    with st.container(border=True, key="period_card"):
+        st.markdown(
+            f"""
+            <div class="period-row">
+              <div>
+                <div class="period-label">Evaluation Period</div>
+                <div class="period-value">{html.escape(student.evaluation_period)}</div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     with st.container(border=True, key="progress_card"):
         st.markdown('<div class="section-heading">Your Evaluation Progress</div>', unsafe_allow_html=True)
