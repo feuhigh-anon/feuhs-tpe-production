@@ -401,6 +401,7 @@ def inject_styles(theme: str) -> None:
             background: var(--surface-raised) !important;
         }}
         .st-key-profile_card,
+        .st-key-period_card,
         .st-key-progress_card,
         [class*="st-key-assignment_card_"],
         .st-key-submitted_card {{
@@ -415,12 +416,14 @@ def inject_styles(theme: str) -> None:
             box-shadow: 0 5px 18px var(--shadow), inset 0 0 0 1px var(--border) !important;
         }}
         .st-key-profile_card > div,
+        .st-key-period_card > div,
         .st-key-progress_card > div,
         [class*="st-key-assignment_card_"] > div,
         .st-key-submitted_card > div {{
             background: var(--surface-raised) !important;
         }}
         .st-key-profile_card .portal-card,
+        .st-key-period_card .period-row,
         .st-key-progress_card,
         [class*="st-key-assignment_card_"] .assignment-copy,
         .st-key-submitted_card .submission-copy {{
@@ -816,14 +819,18 @@ def render_home(student, assignments, submitted: frozenset[str]) -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.markdown(
-            f"""
-            <div class="period-row">
-                            <div><div class="period-label">Evaluation Period</div><div class="period-value">{html.escape(student.evaluation_period)}</div></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        with st.container(border=True, key="period_card"):
+                st.markdown(
+                        f"""
+                        <div class="period-row">
+                            <div>
+                                <div class="period-label">Evaluation Period</div>
+                                <div class="period-value">{html.escape(student.evaluation_period)}</div>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                )
 
     with st.container(border=True, key="progress_card"):
         st.markdown('<div class="section-heading">Your Evaluation Progress</div>', unsafe_allow_html=True)
