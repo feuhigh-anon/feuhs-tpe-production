@@ -18,6 +18,10 @@ exports/
 uploads/
 *.inspect.ndjson
 
+# Private draft-instrument review and management materials
+docs/TPE_INSTRUMENT_REVIEW.md
+docs/TPE_LITERATURE_REVIEW.md
+
 # Local environment files and credentials
 .env
 .env.*
