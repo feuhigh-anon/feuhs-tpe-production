@@ -48,6 +48,19 @@ does not commit the project to the current questions for production.
    This command creates no users and changes no database rows. It excludes the
    four shared-UCSP section-subjects under the current approved policy.
 
+   Provision the approved plan only after reviewing its CSV:
+
+   ```bash
+   .venv/bin/python scripts/provision_roster_pilot.py \
+     --url https://YOUR_PROJECT_REF.supabase.co \
+     --plan exports/pilot_cohort_plan/pilot_cohort_plan_20260826_121655.csv \
+     --bundle exports/roster_import_SY2026_Q1_pilot
+   ```
+
+   This creates 45 reserved `example.invalid` accounts, opens only the pilot
+   period, and leaves the full roster staging batch untouched. The command
+   writes an owner-only credentials CSV under `exports/`.
+
 4. Run the Streamlit app with those synthetic credentials and verify:
 
    - login and logout;
@@ -67,6 +80,14 @@ does not commit the project to the current questions for production.
 
 6. Delete the synthetic pilot users, temporary assignments, submissions, and
    credentials after testing, unless a documented test record must be retained.
+
+   Cleanup is explicit and safety-checked:
+
+   ```bash
+   .venv/bin/python scripts/cleanup_roster_pilot.py \
+     --url https://YOUR_PROJECT_REF.supabase.co \
+     --credentials exports/pilot_credentials_YYYYMMDD_HHMMSS.csv
+   ```
 
 ## Current Question Bank Limitation
 

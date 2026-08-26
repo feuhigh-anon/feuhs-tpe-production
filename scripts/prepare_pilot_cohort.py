@@ -134,7 +134,10 @@ def main() -> None:
                 "created_at": datetime.now().isoformat(),
                 "students_per_cohort": args.students_per_cohort,
                 "total_accounts": len(account_summary),
-                "cohorts": {cohort: len(rows) for cohort, rows in cohort_sections.items()},
+                "cohorts": {
+                    cohort: sum(1 for account in account_summary if account["cohort"] == cohort)
+                    for cohort in ("JHS", "G11", "G12")
+                },
                 "account_summary": account_summary,
                 "assignment_rows": len(plan),
                 "shared_section_subjects_excluded": sorted(
