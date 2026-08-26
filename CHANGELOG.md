@@ -15,6 +15,16 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 
 ## 2026-08-25
 
+### 16:43:47 - Rebased QC findings onto the Aug 25 final roster
+
+- Updated `scripts/build_final_roster_workbook.py` so student-dependent QC rows
+  from the older roster are removed when the final workbook is generated.
+- The current QC sheet contains 85 findings: 70 High and 15 Low. The 65 High
+  student-assignment findings descend from four missing assignment keys rather
+  than representing 65 separate teacher problems.
+- Verification: the final workbook was regenerated and 46 unit tests passed.
+- Commit: pending.
+
 ### 16:32:00 - Removed active strand dependency and restricted viewer chrome
 
 - Removed strand matching from the student portal assignment filter and stopped

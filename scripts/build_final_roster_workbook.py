@@ -38,6 +38,23 @@ def grade_number(value: object) -> int:
     return int(match.group())
 
 
+def canonical_section_code(section_name: object, existing_code: object = "") -> str:
+    """Return the institutional code for a Canvas section long name.
+
+    The prior reconciliation abbreviated General Studies as GE and assigned
+    Engineering Science 1 the same code as Engineering Science 2. The SIS
+    export establishes GS and the numbered ES codes as the authoritative form.
+    """
+    name = clean(section_name)
+    match = re.fullmatch(r"11 General Studies (\d+)", name)
+    if match:
+        return f"11GS{int(match.group(1)):02d}"
+    match = re.fullmatch(r"11 Engineering Science (\d+)", name)
+    if match:
+        return f"11ES{int(match.group(1)):02d}"
+    return clean(existing_code)
+
+
 def records(sheet) -> tuple[list[str], list[dict[str, object]]]:
     rows = list(sheet.iter_rows(values_only=True))
     headers = [clean(value) for value in rows[0]]
@@ -53,6 +70,103 @@ def replace_sheet(workbook, name: str, headers: list[str], rows: list[dict[str, 
         sheet.append([row.get(header, "") for header in headers])
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
+
+
+def fresh_qc(
+    students: list[dict[str, object]],
+    assignments: list[dict[str, object]],
+    student_assignments: list[dict[str, object]],
+    section_codes: set[str],
+) -> tuple[list[str], list[dict[str, object]]]:
+    """Create QC findings from the rebuilt rows only.
+
+    The previous reconciliation's QC sheet is historical evidence, not a
+    current validation result. Recomputing here prevents stale students and
+    already-resolved substitution findings from being carried into the final
+    workbook.
+    """
+    headers = [
+        "severity", "entity", "record_id", "issue", "details",
+        "recommended_action", "resolution", "reviewer_notes",
+    ]
+    findings: list[dict[str, object]] = []
+
+    def add(severity: str, entity: str, record_id: str, issue: str,
+            details: str, action: str, resolution: str = "Open",
+            notes: str = "") -> None:
+        findings.append({
+            "severity": severity,
+            "entity": entity,
+            "record_id": record_id,
+            "issue": issue,
+            "details": details,
+            "recommended_action": action,
+            "resolution": resolution,
+            "reviewer_notes": notes,
+        })
+
+    student_numbers = [clean(row.get("student_number")) for row in students]
+    for student_number, count in Counter(student_numbers).items():
+        if student_number and count > 1:
+            add("High", "Student", student_number, "Duplicate student number",
+                f"The final roster contains {count} rows with this student number.",
+                "Correct the final roster before import.")
+    emails = [clean(row.get("email")).lower() for row in students]
+    for email, count in Counter(emails).items():
+        if email and count > 1:
+            add("High", "Student", email, "Duplicate student email",
+                f"The final roster produces {count} rows with this email.",
+                "Correct the final roster before import.")
+
+    assignments_by_key = {clean(row.get("assignment_key")): row for row in assignments}
+    for assignment in assignments:
+        key = clean(assignment.get("assignment_key"))
+        teacher_id = clean(assignment.get("teacher_user_id"))
+        teacher_name = clean(assignment.get("teacher_name"))
+        if not teacher_id or not teacher_name or teacher_name.lower() in {
+            "new science teacher", "for hire faculty", "tba", "tbd",
+        }:
+            add(
+                "High", "Teaching Assignment", key,
+                "Unresolved teacher identity",
+                f"{clean(assignment.get('subject_long_name'))} / {clean(assignment.get('canvas_section_name'))}",
+                "Confirm an actual teacher or exclude the assignment under the substitution policy.",
+            )
+
+    by_pair: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
+    for assignment in assignments:
+        by_pair[(clean(assignment.get("section_code")), clean(assignment.get("subject_code")))].append(assignment)
+    for (section_code, subject_code), rows in by_pair.items():
+        if len(rows) > 1:
+            add(
+                "Low", "Teaching Assignment",
+                f"{section_code}|{subject_code}",
+                "Shared class excluded by policy",
+                f"{len(rows)} teacher rows exist for this section-subject pair.",
+                "Do not create a student evaluation assignment until the class has one eligible teacher.",
+                "Resolved",
+                "Shared classes are excluded from evaluation in this release.",
+            )
+
+    for assignment in student_assignments:
+        key = clean(assignment.get("assignment_key"))
+        if key not in assignments_by_key:
+            add(
+                "High", "Student Assignment",
+                f"{clean(assignment.get('student_number'))}|{key}",
+                "Missing teaching assignment",
+                f"{clean(assignment.get('subject_long_name'))} / {clean(assignment.get('canvas_section_name'))}",
+                "Remove the student assignment or add a confirmed teaching assignment.",
+            )
+        if clean(assignment.get("section_code")) not in section_codes:
+            add(
+                "High", "Student Assignment",
+                f"{clean(assignment.get('student_number'))}|{key}",
+                "Unknown section code",
+                clean(assignment.get("section_code")),
+                "Correct the section mapping before import.",
+            )
+    return headers, findings
 
 
 def build(source: Path, enrollment: Path, output: Path) -> dict[str, int]:
@@ -77,7 +191,9 @@ def build(source: Path, enrollment: Path, output: Path) -> dict[str, int]:
         if source_name:
             candidate = {
                 "canvas_section_name": clean(row.get("canvas_section_name")),
-                "section_code": clean(row.get("section_code")),
+                "section_code": canonical_section_code(
+                    row.get("canvas_section_name"), row.get("section_code")
+                ),
             }
             previous = section_by_source.setdefault(source_name, candidate)
             if previous != candidate:
@@ -100,6 +216,98 @@ def build(source: Path, enrollment: Path, output: Path) -> dict[str, int]:
     section_by_source.update(
         {source_name: {"canvas_section_name": canvas, "section_code": code} for source_name, (canvas, code) in explicit.items()}
     )
+
+    # Normalize all source sheets before generating dependent rows. This also
+    # repairs duplicate legacy codes in Sections and Teaching Assignments.
+    for row in section_rows:
+        row["section_code"] = canonical_section_code(
+            row.get("canvas_section_name"), row.get("section_code")
+        )
+    for row in assignment_rows:
+        old_key = clean(row.get("assignment_key"))
+        row["section_code"] = canonical_section_code(
+            row.get("canvas_section_name"), row.get("section_code")
+        )
+        key_parts = old_key.split("|", 2)
+        if len(key_parts) == 3:
+            key_parts[1] = re.sub(
+                r"_(?:11GE|11GS|11ES)\d{2}$",
+                "_" + row["section_code"],
+                key_parts[1],
+            )
+            row["assignment_key"] = "|".join(key_parts)
+    for mapping in section_by_source.values():
+        mapping["section_code"] = canonical_section_code(
+            mapping.get("canvas_section_name"), mapping.get("section_code")
+        )
+
+    replace_sheet(workbook, "Sections", section_headers, section_rows)
+
+    # The Canvas course for World Religions carries multiple teachers at the
+    # course level. The administrative schedule provides the authoritative
+    # section-level allocation, so retain only the scheduled teacher per class.
+    world_religions_teacher_by_section = {
+        "12H01a": "H202290091",  # Bandolin Jr., Arthur
+        "12H01b": "H201902978",  # Basa, Audrey Jeremae
+        "12H02a": "H201902978",  # Basa, Audrey Jeremae
+        "12H02b": "H201902978",  # Basa, Audrey Jeremae
+        "12H03b": "H202290091",  # Bandolin Jr., Arthur
+    }
+    filtered_assignments: list[dict[str, object]] = []
+    for row in assignment_rows:
+        section_code = clean(row.get("section_code"))
+        if clean(row.get("subject_code")) == "WR" and section_code in world_religions_teacher_by_section:
+            if clean(row.get("teacher_user_id")) != world_religions_teacher_by_section[section_code]:
+                continue
+            row["review_notes"] = "Section teacher verified against 03 Teachers Schedule, SOCSCI (V.2)."
+        filtered_assignments.append(row)
+    assignment_rows = filtered_assignments
+
+    # The schedule lists two WR sections that were absent from the Canvas
+    # assignment snapshot even though the final roster contains students.
+    # Materialize those schedule-confirmed rows from the existing WR course
+    # template so their students are not silently left without WR evaluation.
+    wr_template = next(
+        (row for row in assignment_rows if clean(row.get("subject_code")) == "WR"),
+        None,
+    )
+    teacher_lookup = {
+        clean(row.get("teacher_user_id")): row
+        for row in records(workbook["Teachers"])[1]
+    }
+    wr_schedule_rows = {
+        "12H02a": "H201902978",  # Basa, Audrey Jeremae
+        "12H03b": "H202290091",  # Bandolin Jr., Arthur
+    }
+    if wr_template is not None:
+        for section_code, teacher_id in wr_schedule_rows.items():
+            if any(
+                clean(row.get("section_code")) == section_code
+                and clean(row.get("subject_code")) == "WR"
+                for row in assignment_rows
+            ):
+                continue
+            row = dict(wr_template)
+            teacher = teacher_lookup[teacher_id]
+            section_name = next(
+                clean(section.get("canvas_section_name"))
+                for section in section_rows
+                if clean(section.get("section_code")) == section_code
+            )
+            course_id = clean(row.get("canvas_course_id"))
+            row.update({
+                "assignment_key": f"SHS|{course_id}_{section_code}|{course_id}|{teacher_id}",
+                "canvas_section_name": section_name,
+                "section_code": section_code,
+                "teacher_user_id": teacher_id,
+                "teacher_code": clean(teacher.get("teacher_code")),
+                "teacher_name": clean(teacher.get("teacher_name")),
+                "teacher_email": clean(teacher.get("teacher_email")),
+                "canvas_section_id": f"{course_id}_{section_code}",
+                "review_notes": "Section teacher verified against 03 Teachers Schedule, SOCSCI (V.2).",
+            })
+            assignment_rows.append(row)
+    replace_sheet(workbook, "Teaching Assignments", assignment_headers, assignment_rows)
 
     missing = sorted({clean(row.get("K12 - Section")) for row in roster_rows} - set(section_by_source))
     if missing:
@@ -166,11 +374,54 @@ def build(source: Path, enrollment: Path, output: Path) -> dict[str, int]:
     replace_sheet(workbook, "Students", student_headers, students)
     replace_sheet(workbook, "Student Assignments", student_assignment_headers, student_assignments)
 
+    qc_headers, qc_rows = fresh_qc(
+        students,
+        assignment_rows,
+        student_assignments,
+        {clean(row.get("section_code")) for row in section_rows},
+    )
+    replace_sheet(workbook, "QC Issues", qc_headers, qc_rows)
+
     if "Review Guide" in workbook.sheetnames:
         guide = workbook["Review Guide"]
-        guide.append(["Roster refresh", "Aug 25 final enrollment roster with Canvas/SIS reconciliation"])
-        guide.append(["Import status", "QC review required; no Supabase import performed"])
-        guide.append(["Shared-class policy", "Student assignments exclude section-subject pairs with multiple teachers"])
+        metric_counts = {
+            "Distinct Canvas section names": len({clean(row.get("canvas_section_name")) for row in section_rows}),
+            "Subject codes": len({clean(row.get("subject_code")) for row in records(workbook["Subjects"])[1]}),
+            "Teacher Canvas IDs": len({clean(row.get("teacher_user_id")) for row in records(workbook["Teachers"])[1]}),
+            "Teaching assignments": len(assignment_rows),
+            "Students": len(students),
+            "Student-assignment links": len(student_assignments),
+            "QC issue rows": len(qc_rows),
+            "Students missing email": sum(not clean(row.get("email")) for row in students),
+        }
+        guide.delete_rows(1, guide.max_row)
+        guide.append(["FEU High School Teacher Performance Evaluation Roster Review"])
+        guide.append(["Private working file; identifiable student data must remain outside Git."])
+        guide.append(["Review metric", "Count"])
+        for label, count in metric_counts.items():
+            guide.append([label, count])
+        guide.append(["Policy and source notes"])
+        guide.append(["Student sections", "The Aug 25 K12 - Section value is authoritative for each student."])
+        guide.append(["Section codes", "Application section_code values are canonical; SIS and Canvas identifiers are retained for traceability."])
+        guide.append(["Teacher identity", "Teacher Canvas IDs are identity keys. Teacher codes are source aliases and are not unique identity keys."])
+        guide.append(["Shared classes", "Shared teaching rows are retained for review, but student assignments exclude shared classes."])
+        guide.append(["World Religions", "Section-level teachers follow 03 Teachers Schedule, SOCSCI (V.2); Canvas course-level co-enrollments were not used to assign both teachers."])
+        guide.append(["Substitutions", "Daily substitutes are excluded; only documented long-term substitutes may be evaluated."])
+        guide.append(["Import status", "Blocked until all High QC findings are resolved."])
+
+    if "Source Manifest" in workbook.sheetnames:
+        manifest = workbook["Source Manifest"]
+        manifest.append([
+            enrollment.name, "JHS/SHS", "Authoritative final student roster",
+            len(roster_rows), "2026-08-25",
+            "Source retained outside Git; K12 - Section controls student placement",
+        ])
+        manifest.append([
+            "sis_export_csv_25_Aug_2026_239520260825-528212-88l3po.csv", "SHS",
+            "Latest Canvas SIS enrollment snapshot used for reconciliation",
+            "Not loaded by this builder", "2026-08-25",
+            "Source retained outside Git; does not override the final student roster",
+        ])
 
     output.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output)
