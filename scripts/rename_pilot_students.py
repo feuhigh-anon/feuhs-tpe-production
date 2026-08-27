@@ -72,7 +72,9 @@ def replacement(email: str) -> tuple[str, str]:
     if not 1 <= index <= 15:
         raise SystemExit(f"Pilot index must be 01-15: {email}")
     surname, first_name = SURNAME_FIRST_NAMES[cohort][index - 1]
-    return f"{surname}, {first_name}", f"PILOT-{cohort.upper()}-{index:02d}"
+    cohort_offset = {"jhs": 0, "g11": 15, "g12": 30}[cohort]
+    synthetic_number = 20600000000 + cohort_offset + index
+    return f"{surname}, {first_name}", str(synthetic_number)
 
 
 def main() -> None:
@@ -86,6 +88,9 @@ def main() -> None:
 
     rows, fields = read_credentials(args.credentials)
     replacements = {row["email"].casefold(): replacement(row["email"]) for row in rows}
+    for field in ("display_name", "student_number"):
+        if field not in fields:
+            fields.append(field)
     for row in rows:
         row["display_name"], row["student_number"] = replacements[row["email"].casefold()
     ]
