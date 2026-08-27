@@ -54,7 +54,7 @@ RATING_LABELS = {
     4: "Agree",
     5: "Strongly Agree",
 }
-CLIENT_VERSION = "streamlit-alpha-1"
+CLIENT_VERSION = "streamlit-pilot-20260827"
 AUTH_STATE_KEYS = (
     "supabase_session",
     "supabase_snapshot",
