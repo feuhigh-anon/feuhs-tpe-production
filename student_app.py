@@ -701,6 +701,20 @@ def render_login(settings: SupabaseSettings) -> None:
                 type="primary",
                 use_container_width=True,
             )
+        if submitted:
+            if not email.strip() or not password:
+                st.error("Enter both your email and password.")
+                return
+            try:
+                client, session = sign_in_with_password(settings, email, password)
+            except PortalAuthenticationError:
+                st.error("Sign-in failed. Check your account details and try again.")
+                return
+            st.session_state.supabase_client = client
+            st.session_state.supabase_session = session
+            st.session_state.supabase_snapshot = None
+            st.session_state.portal_page = "home"
+            st.rerun()
         st.markdown(
             """
             <div class="login-assurance">
@@ -730,20 +744,6 @@ def render_login(settings: SupabaseSettings) -> None:
             """,
             unsafe_allow_html=True,
         )
-    if submitted:
-        if not email.strip() or not password:
-            st.error("Enter both your email and password.")
-            return
-        try:
-            client, session = sign_in_with_password(settings, email, password)
-        except PortalAuthenticationError:
-            st.error("Sign-in failed. Check your account details and try again.")
-            return
-        st.session_state.supabase_client = client
-        st.session_state.supabase_session = session
-        st.session_state.supabase_snapshot = None
-        st.session_state.portal_page = "home"
-        st.rerun()
 
 
 def render_header(back_page: str | None = None) -> None:
