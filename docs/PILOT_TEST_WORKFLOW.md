@@ -75,6 +75,36 @@ does not commit the project to the current questions for production.
      responses;
    - administrator export can read responses only with the service key.
 
+   If the deployed app reports only “Sign-in failed,” isolate authentication
+   from roster loading with this read-only diagnostic:
+
+   ```bash
+   .venv/bin/python scripts/check_pilot_login.py \
+     --url https://YOUR_PROJECT_REF.supabase.co \
+     --email pilot.jhs.01@example.invalid
+   ```
+
+   Use the same publishable key configured for the deployed app. Never use a
+   secret key with this command.
+
+   To reconcile a missing login against the hosted project, run the read-only
+   account audit:
+
+   ```bash
+   .venv/bin/python scripts/audit_pilot_accounts.py \
+     --url https://YOUR_PROJECT_REF.supabase.co
+   ```
+
+   If Auth rejects a known pilot credential, rotate only that synthetic
+   password with the administrator utility, then rerun the diagnostic:
+
+   ```bash
+   .venv/bin/python scripts/reset_pilot_password.py \
+     --url https://YOUR_PROJECT_REF.supabase.co \
+     --credentials exports/pilot_credentials_20260826_123843.csv \
+     --email pilot.jhs.01@example.invalid
+   ```
+
 5. Record the result, period code, question-bank IDs, synthetic credential file,
    and cleanup status locally. Do not commit credentials or response exports.
 
