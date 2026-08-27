@@ -704,17 +704,17 @@ def render_login(settings: SupabaseSettings) -> None:
         if submitted:
             if not email.strip() or not password:
                 st.error("Enter both your email and password.")
-                return
-            try:
-                client, session = sign_in_with_password(settings, email, password)
-            except PortalAuthenticationError:
-                st.error("Sign-in failed. Check your account details and try again.")
-                return
-            st.session_state.supabase_client = client
-            st.session_state.supabase_session = session
-            st.session_state.supabase_snapshot = None
-            st.session_state.portal_page = "home"
-            st.rerun()
+            else:
+                try:
+                    client, session = sign_in_with_password(settings, email, password)
+                except PortalAuthenticationError:
+                    st.error("Sign-in failed. Check your account details and try again.")
+                else:
+                    st.session_state.supabase_client = client
+                    st.session_state.supabase_session = session
+                    st.session_state.supabase_snapshot = None
+                    st.session_state.portal_page = "home"
+                    st.rerun()
         st.markdown(
             """
             <div class="login-assurance">
