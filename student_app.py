@@ -447,7 +447,7 @@ def inject_styles(theme: str) -> None:
         .home-profile-banner {{
             position: relative; min-height: 6.25rem; margin: -1.05rem -1rem 1rem;
             overflow: hidden; background: var(--deep); border-radius: 5px 5px 0 0;
-            border-bottom: 3px solid var(--gold); container-type: inline-size;
+            border-bottom: 3px solid var(--gold);
         }}
         .home-profile-banner img {{
             position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
@@ -457,8 +457,8 @@ def inject_styles(theme: str) -> None:
             position: absolute; left: 1rem; bottom: .78rem; z-index: 1;
             color: #FFFFFF; letter-spacing: 0;
         }}
-        .home-profile-banner .student-number {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; white-space: nowrap; }}
-        .home-profile-banner .student-full-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .home-profile-banner .student-surname {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; white-space: nowrap; }}
+        .home-profile-banner .student-given-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
         .home-profile-content {{ padding: 0 .15rem .15rem; }}
         .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 3.9rem; padding-bottom: .4rem; }}
         .home-progress-copy {{ min-width: 0; flex: 1; }}
@@ -915,8 +915,8 @@ def render_home(
               <div class="home-profile-banner">
                 <img src="{architecture_uri}" alt="">
                                 <div class="student-name-block home-profile-banner-copy">
-                                    <div class="student-number">{html.escape(getattr(student, "student_number", ""))}</div>
-                                    <div class="student-full-name">{html.escape(full_name)}</div>
+                                    <div class="student-surname">{html.escape(getattr(student, "student_number", ""))}</div>
+                                    <div class="student-given-name">{html.escape(full_name)}</div>
                                 </div>
               </div>
               <div class="home-profile-content">
