@@ -447,7 +447,7 @@ def inject_styles(theme: str) -> None:
         .home-profile-banner {{
             position: relative; min-height: 6.25rem; margin: -1.05rem -1rem 1rem;
             overflow: hidden; background: var(--deep); border-radius: 5px 5px 0 0;
-            border-bottom: 3px solid var(--gold);
+            border-bottom: 3px solid var(--gold); container-type: inline-size;
         }}
         .home-profile-banner img {{
             position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
@@ -457,8 +457,8 @@ def inject_styles(theme: str) -> None:
             position: absolute; left: 1rem; bottom: .78rem; z-index: 1;
             color: #FFFFFF; letter-spacing: 0;
         }}
-        .home-profile-banner .student-surname {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; }}
-        .home-profile-banner .student-given-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; }}
+        .home-profile-banner .student-number {{ color: var(--gold); font-size: min(1.8rem, 12cqw); line-height: 1.02; white-space: nowrap; }}
+        .home-profile-banner .student-full-name {{ color: #FFFFFF; font-size: min(1.25rem, 8cqw); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
         .home-profile-content {{ padding: 0 .15rem .15rem; }}
         .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 3.9rem; padding-bottom: .4rem; }}
         .home-progress-copy {{ min-width: 0; flex: 1; }}
@@ -803,13 +803,38 @@ def render_bottom_nav(active: str) -> None:
 
 def display_section(student) -> str:
     raw_section = str(student.section or "").strip()
-    compact = re.sub(r"\s+", "", raw_section)
     grade = int(student.grade_level)
     if grade <= 10:
         suffix = re.sub(r"^(?:G(?:RADE)?\s*)?0?\d{1,2}", "", raw_section, flags=re.IGNORECASE)
         suffix = re.sub(r"JHS|[-_\s]+", "", suffix, flags=re.IGNORECASE).strip()
-        return f"G{grade:02d}-{suffix}" if suffix else f"G{grade:02d}"
-    return re.sub(r"[^A-Za-z0-9]", "", compact)
+        return f"Grade {grade}-{suffix}" if suffix else f"Grade {grade}"
+    compact = re.sub(r"[^A-Za-z0-9]", "", raw_section)
+    if grade == 11:
+        pathways = {
+            "AF": "Accounting and Finance",
+            "ARCD": "Architecture and Design",
+            "AD": "Arts and Design",
+            "DT": "Digital Technologies",
+            "ES": "Engineering Science",
+            "GS": "General Studies",
+            "HS": "Health Science",
+            "ME": "Marketing and Entrepreneurship",
+            "ML": "Media and Languages",
+            "PSY": "Psychology",
+            "PS": "Political Studies",
+            "TH": "Tourism and Hospitality",
+        }
+        match = re.fullmatch(r"11([A-Z]+)(\d+)", compact, flags=re.IGNORECASE)
+        if match:
+            pathway = pathways.get(match.group(1).upper())
+            if pathway:
+                return f"11 {pathway} {int(match.group(2))}"
+    if grade == 12:
+        pathways = {"A": "ABM", "G": "GAS", "H": "HUMSS", "S": "STEM"}
+        match = re.fullmatch(r"12([AGHS])(\d+)([AB])", compact, flags=re.IGNORECASE)
+        if match:
+            return f"12 {pathways[match.group(1).upper()]} {int(match.group(2))}{match.group(3).upper()}"
+    return raw_section
 
 
 SUBJECT_SHORT_NAMES = {
@@ -874,12 +899,12 @@ def render_home(
     completed = len(submitted)
     total = len(assignments)
     progress = completed / total if total else 0
-    surname, given_name = student_name_lines(student.name)
+    full_name = " ".join(str(student.name or "").split())
     architecture_uri = asset_data_uri("feu-architecture-line-art.png")
     remaining_days = days_remaining(student)
     profile_meta = " · ".join(
         value
-        for value in (getattr(student, "student_number", ""), display_section(student))
+        for value in (display_section(student),)
         if value
     )
 
@@ -890,8 +915,8 @@ def render_home(
               <div class="home-profile-banner">
                 <img src="{architecture_uri}" alt="">
                                 <div class="student-name-block home-profile-banner-copy">
-                                    <div class="student-surname">{html.escape(surname)}</div>
-                                    <div class="student-given-name">{html.escape(given_name)}</div>
+                                    <div class="student-number">{html.escape(getattr(student, "student_number", ""))}</div>
+                                    <div class="student-full-name">{html.escape(full_name)}</div>
                                 </div>
               </div>
               <div class="home-profile-content">
