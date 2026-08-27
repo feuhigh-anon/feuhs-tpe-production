@@ -457,8 +457,8 @@ def inject_styles(theme: str) -> None:
             position: absolute; left: 1rem; bottom: .78rem; z-index: 1;
             color: #FFFFFF; letter-spacing: 0;
         }}
-        .home-profile-banner .student-number {{ color: var(--gold); font-size: min(1.8rem, 12cqw); line-height: 1.02; white-space: nowrap; }}
-        .home-profile-banner .student-full-name {{ color: #FFFFFF; font-size: min(1.25rem, 8cqw); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .home-profile-banner .student-number {{ color: var(--gold); font-size: 1.8rem; line-height: 1.02; white-space: nowrap; }}
+        .home-profile-banner .student-full-name {{ color: #FFFFFF; font-size: 1.25rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
         .home-profile-content {{ padding: 0 .15rem .15rem; }}
         .home-progress-layout {{ display: flex; align-items: center; gap: 1rem; min-height: 3.9rem; padding-bottom: .4rem; }}
         .home-progress-copy {{ min-width: 0; flex: 1; }}
