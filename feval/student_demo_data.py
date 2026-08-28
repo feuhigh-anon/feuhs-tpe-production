@@ -114,12 +114,12 @@ DEMO_SUBMISSIONS = (
         student_id=DEMO_STUDENT.id,
         assignment_id="DEMO-Q2-2026-STEM-EAPP",
         evaluation_period="Q2 2026",
-        submitted_at=datetime(2026, 5, 18, 9, 10),
+        submitted_at=datetime(2026, 5, 18, 9, 10, tzinfo=timezone.utc),
     ),
     SubmissionRecord(
         student_id=DEMO_STUDENT.id,
         assignment_id="DEMO-Q2-2026-STEM-MIL",
         evaluation_period="Q2 2026",
-        submitted_at=datetime(2026, 5, 19, 14, 35),
+        submitted_at=datetime(2026, 5, 19, 14, 35, tzinfo=timezone.utc),
     ),
 )
