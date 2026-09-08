@@ -58,6 +58,22 @@ class PortalSnapshot:
     question_block: QuestionBlock
 
 
+@dataclass(frozen=True)
+class AdminEvaluationSummary:
+    """Privacy-preserving quantitative summary for one teaching assignment."""
+
+    teaching_assignment_id: str
+    teacher_name: str
+    school_level: str
+    subject: str
+    section_code: str
+    evaluation_period: str
+    response_count: int
+    faculty_mean: float | None
+    experience_mean: float | None
+    self_evaluation_mean: float | None
+
+
 def new_client(settings: SupabaseSettings) -> Client:
     settings.validate()
     return create_client(settings.url, settings.publishable_key)
@@ -280,6 +296,167 @@ def load_portal_snapshot(
     )
 
 
+def load_admin_evaluation_summary(
+    client: Client,
+    session: AuthSession,
+    period_id: int,
+) -> tuple[AdminEvaluationSummary, ...]:
+    """Load admin-scoped quantitative summaries without student or comment data.
+
+    The aggregation key is the teaching assignment, preserving separate sections
+    for a teacher who teaches the same subject more than once. Only numeric
+    ratings are selected; free-text responses and student identifiers never
+    enter the returned objects.
+    """
+
+    profile = _one(
+        client.table("profiles")
+        .select("id,role,is_active")
+        .eq("id", session.user_id)
+        .limit(1)
+        .execute(),
+        "No active administrator profile was found.",
+    )
+    if profile.get("role") != "admin" or not profile.get("is_active", False):
+        raise PortalDataError("This account is not an active administrator account.")
+
+    period = _one(
+        client.table("evaluation_periods")
+        .select("id,code")
+        .eq("id", int(period_id))
+        .limit(1)
+        .execute(),
+        "The evaluation period was not found.",
+    )
+    submissions = _rows(
+        client.table("evaluation_submissions")
+        .select("id,teaching_assignment_id")
+        .eq("evaluation_period_id", int(period_id))
+        .execute()
+    )
+    if not submissions:
+        return ()
+
+    submission_ids = [int(row["id"]) for row in submissions]
+    assignment_ids = sorted({int(row["teaching_assignment_id"]) for row in submissions})
+    assignments = {
+        int(row["id"]): row
+        for row in _rows(
+            client.table("teaching_assignments")
+            .select("id,section_id,subject_id,teacher_id,is_active")
+            .in_("id", assignment_ids)
+            .execute()
+        )
+        if row.get("is_active", False)
+    }
+    if not assignments:
+        return ()
+
+    section_ids = sorted({int(row["section_id"]) for row in assignments.values()})
+    subject_ids = sorted({int(row["subject_id"]) for row in assignments.values()})
+    teacher_ids = sorted({int(row["teacher_id"]) for row in assignments.values()})
+    sections = {
+        int(row["id"]): row
+        for row in _rows(
+            client.table("sections")
+            .select("id,code,school_level")
+            .in_("id", section_ids)
+            .execute()
+        )
+    }
+    subjects = {
+        int(row["id"]): row
+        for row in _rows(
+            client.table("subjects")
+            .select("id,name")
+            .in_("id", subject_ids)
+            .execute()
+        )
+    }
+    teachers = {
+        int(row["id"]): row
+        for row in _rows(
+            client.table("teachers")
+            .select("id,display_name")
+            .in_("id", teacher_ids)
+            .execute()
+        )
+    }
+    responses = _rows(
+        client.table("evaluation_responses")
+        .select("submission_id,question_item_id,rating_value,is_not_applicable")
+        .in_("submission_id", submission_ids)
+        .execute()
+    )
+    question_ids = sorted({int(row["question_item_id"]) for row in responses})
+    questions = {
+        int(row["id"]): row
+        for row in _rows(
+            client.table("question_items")
+            .select("id,section_key")
+            .in_("id", question_ids or [-1])
+            .execute()
+        )
+    }
+
+    ratings_by_submission: dict[int, dict[str, list[float]]] = {}
+    for response in responses:
+        rating = response.get("rating_value")
+        question = questions.get(int(response["question_item_id"]))
+        if rating is None or not question:
+            continue
+        component = {
+            "teacher_performance": "faculty",
+            "student_experience": "experience",
+            "student_self_evaluation": "self_evaluation",
+        }.get(str(question["section_key"]))
+        if not component:
+            continue
+        submission_ratings = ratings_by_submission.setdefault(
+            int(response["submission_id"]),
+            {"faculty": [], "experience": [], "self_evaluation": []},
+        )
+        submission_ratings[component].append(float(rating))
+
+    by_assignment: dict[int, list[dict[str, float]]] = {}
+    submission_assignment = {
+        int(row["id"]): int(row["teaching_assignment_id"]) for row in submissions
+    }
+    for submission_id, assignment_id in submission_assignment.items():
+        if assignment_id not in assignments:
+            continue
+        component_means = {}
+        for component, values in ratings_by_submission.get(submission_id, {}).items():
+            if values:
+                component_means[component] = sum(values) / len(values)
+        by_assignment.setdefault(assignment_id, []).append(component_means)
+
+    summaries = []
+    for assignment_id in sorted(by_assignment):
+        assignment = assignments[assignment_id]
+        section = sections.get(int(assignment["section_id"]))
+        subject = subjects.get(int(assignment["subject_id"]))
+        teacher = teachers.get(int(assignment["teacher_id"]))
+        if not section or not subject or not teacher:
+            continue
+        component_rows = by_assignment[assignment_id]
+        summaries.append(
+            AdminEvaluationSummary(
+                teaching_assignment_id=str(assignment_id),
+                teacher_name=str(teacher["display_name"]),
+                school_level=str(section["school_level"]),
+                subject=str(subject["name"]),
+                section_code=str(section["code"]),
+                evaluation_period=str(period["code"]),
+                response_count=len(component_rows),
+                faculty_mean=_mean_component(component_rows, "faculty"),
+                experience_mean=_mean_component(component_rows, "experience"),
+                self_evaluation_mean=_mean_component(component_rows, "self_evaluation"),
+            )
+        )
+    return tuple(summaries)
+
+
 def question_block_from_rows(
     school_level: str,
     question_bank_id: int,
@@ -425,6 +602,11 @@ def _period_is_open(row: Mapping[str, Any], now: datetime) -> bool:
         and _parse_datetime(row["opens_at"]) <= current
         and current < _parse_datetime(row["closes_at"])
     )
+
+
+def _mean_component(rows: Sequence[Mapping[str, float]], component: str) -> float | None:
+    values = [row[component] for row in rows if component in row]
+    return round(sum(values) / len(values), 4) if values else None
 
 
 def _database_question_id(value: str) -> int:

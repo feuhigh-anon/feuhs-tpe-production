@@ -2,8 +2,11 @@ import unittest
 
 from feval.supabase_portal import (
     PortalConfigurationError,
+    PortalDataError,
     PortalSubmissionError,
     SupabaseSettings,
+    AuthSession,
+    load_admin_evaluation_summary,
     question_block_from_rows,
     response_payload,
 )
@@ -38,6 +41,48 @@ def question_rows():
     return rows
 
 
+class FakeResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class FakeQuery:
+    def __init__(self, rows):
+        self.rows = rows
+        self.filters = []
+
+    def select(self, _columns):
+        return self
+
+    def eq(self, column, value):
+        self.filters.append((column, value))
+        return self
+
+    def in_(self, column, values):
+        self.filters.append((column, set(values)))
+        return self
+
+    def limit(self, _count):
+        return self
+
+    def execute(self):
+        rows = self.rows
+        for column, expected in self.filters:
+            if isinstance(expected, set):
+                rows = [row for row in rows if row.get(column) in expected]
+            else:
+                rows = [row for row in rows if row.get(column) == expected]
+        return FakeResponse(rows)
+
+
+class FakeClient:
+    def __init__(self, tables):
+        self.tables = tables
+
+    def table(self, name):
+        return FakeQuery(self.tables.get(name, []))
+
+
 class SupabasePortalTest(unittest.TestCase):
     def test_student_app_rejects_secret_key(self):
         settings = SupabaseSettings(
@@ -47,6 +92,63 @@ class SupabasePortalTest(unittest.TestCase):
 
         with self.assertRaises(PortalConfigurationError):
             settings.validate()
+
+    def test_admin_summary_is_assignment_scoped_and_excludes_student_data(self):
+        client = FakeClient(
+            {
+                "profiles": [{"id": "admin-1", "role": "admin", "is_active": True}],
+                "evaluation_periods": [{"id": 7, "code": "PILOT-2026-Q1"}],
+                "evaluation_submissions": [
+                    {"id": 1, "teaching_assignment_id": 10, "evaluation_period_id": 7},
+                    {"id": 2, "teaching_assignment_id": 11, "evaluation_period_id": 7},
+                ],
+                "teaching_assignments": [
+                    {"id": 10, "section_id": 20, "subject_id": 30, "teacher_id": 40, "is_active": True},
+                    {"id": 11, "section_id": 21, "subject_id": 30, "teacher_id": 40, "is_active": True},
+                ],
+                "sections": [
+                    {"id": 20, "code": "11-A", "school_level": "SHS"},
+                    {"id": 21, "code": "11-B", "school_level": "SHS"},
+                ],
+                "subjects": [{"id": 30, "name": "Science"}],
+                "teachers": [{"id": 40, "display_name": "Teacher One"}],
+                "question_items": [
+                    {"id": 100, "section_key": "teacher_performance"},
+                    {"id": 101, "section_key": "student_experience"},
+                    {"id": 102, "section_key": "student_self_evaluation"},
+                    {"id": 103, "section_key": "qualitative_feedback"},
+                ],
+                "evaluation_responses": [
+                    {"submission_id": 1, "question_item_id": 100, "rating_value": 4},
+                    {"submission_id": 1, "question_item_id": 101, "rating_value": 3},
+                    {"submission_id": 1, "question_item_id": 102, "rating_value": 5},
+                    {"submission_id": 1, "question_item_id": 103, "rating_value": None},
+                    {"submission_id": 2, "question_item_id": 100, "rating_value": 2},
+                    {"submission_id": 2, "question_item_id": 101, "rating_value": 4},
+                    {"submission_id": 2, "question_item_id": 102, "rating_value": 3},
+                ],
+            }
+        )
+        session = AuthSession("access", "refresh", "admin-1", "admin@example.test")
+
+        summaries = load_admin_evaluation_summary(client, session, 7)
+
+        self.assertEqual([item.section_code for item in summaries], ["11-A", "11-B"])
+        self.assertEqual(summaries[0].response_count, 1)
+        self.assertEqual(summaries[0].faculty_mean, 4.0)
+        self.assertEqual(summaries[0].experience_mean, 3.0)
+        self.assertEqual(summaries[0].self_evaluation_mean, 5.0)
+        self.assertNotIn("student_name", summaries[0].__dict__)
+        self.assertNotIn("text_value", summaries[0].__dict__)
+
+    def test_admin_summary_rejects_non_admin_profile(self):
+        client = FakeClient(
+            {"profiles": [{"id": "student-1", "role": "student", "is_active": True}]}
+        )
+        session = AuthSession("access", "refresh", "student-1", "student@example.test")
+
+        with self.assertRaises(PortalDataError):
+            load_admin_evaluation_summary(client, session, 7)
 
     def test_questionnaire_rows_preserve_four_section_contract(self):
         block = question_block_from_rows("SHS", 7, question_rows())

@@ -273,6 +273,15 @@ def analyze_open_ended(
     empty_columns = [
         "teacher",
         "comment_count",
+        "appreciated_response_count",
+        "appreciated_interpretable_count",
+        "appreciated_abstained_count",
+        "suggestion_response_count",
+        "suggestion_interpretable_count",
+        "suggestion_abstained_count",
+        "experience_response_count",
+        "experience_interpretable_count",
+        "experience_abstained_count",
         "semantic_themes",
         "appreciated_phrases",
         "suggestion_phrases",
@@ -349,6 +358,15 @@ def analyze_open_ended(
             {
                 "teacher": teacher,
                 "comment_count": len(all_comments),
+                "appreciated_response_count": len(group),
+                "appreciated_interpretable_count": len(appreciated),
+                "appreciated_abstained_count": len(group) - len(appreciated),
+                "suggestion_response_count": len(group),
+                "suggestion_interpretable_count": len(suggestions),
+                "suggestion_abstained_count": len(group) - len(suggestions),
+                "experience_response_count": len(group),
+                "experience_interpretable_count": len(experience),
+                "experience_abstained_count": len(group) - len(experience),
                 "semantic_themes": "; ".join(FRAME_SHORT_LABELS.get(frame, frame) for frame in frames)
                 if frames
                 else "no dominant theme detected",

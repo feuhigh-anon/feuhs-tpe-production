@@ -13,6 +13,59 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 - Do not include passwords, API keys, student rosters, response data, or other
   private information.
 
+## 2026-09-08
+
+### Clarified quantitative scoring status
+
+- Restored the existing pilot scorer's quantitative weight configuration. No
+  new psychometric approach is adopted by the qualitative-report integration.
+- The finalized questionnaire and replacement psychometric method remain
+  pending upper-management approval; the current scorer should therefore be
+  treated as the existing pilot implementation, not as the finalized
+  measurement model.
+- The qualitative PDF/report contract remains available independently for
+  descriptive feedback and audit metadata.
+
+### Qualitative feedback reporting integration
+
+- Preserved the existing pilot scorer while adding a separate structured
+  qualitative reporting path; no replacement psychometric approach is claimed.
+- Added per-prompt response, interpretable-comment, and abstention counts in
+  `feval/text.py` for the appreciation, suggestion, and experience prompts.
+- Extended `feval/reporting.py` with an optional `qualitative_summary` table
+  contract. The stable structured fields are `teacher`, `prompt_type`,
+  `statement_1` through `statement_3`, counts, `status`, and `model_status`.
+- Updated `feval/pdf_report.py` to render the structured summary only for the
+  requested teacher, show deterministic audit metadata, and retain the legacy
+  qualitative fallback when no structured summary is supplied. Raw comments
+  are not rendered.
+- Added regression coverage in `tests/test_pipeline.py` for the descriptive
+  score boundary, audit counts, teacher isolation, and structured PDF input.
+
+#### Where to look
+
+- Implementation: `feval/reporting.py`, `feval/scoring.py`,
+  `feval/text.py`, and `feval/pdf_report.py`.
+- Tests: `tests/test_pipeline.py`; focused command:
+  `.venv/bin/python -m unittest tests.test_pipeline`.
+- Full verification command:
+  `.venv/bin/python -m unittest discover -s tests`.
+- Design and review protocol:
+  `docs/QUALITATIVE_ANALYSIS_LITERATURE_AND_REVIEW_PROTOCOL.md`.
+- Quantitative replacement context:
+  `docs/PSYCHOMETRIC_PIPELINE_VALIDATION_AND_REPLACEMENT_PLAN.md`.
+
+#### Current boundary
+
+- The PDF/report contract is ready to receive one isolated teacher plus one
+  prompt type at a time, with up to three statements per prompt type.
+- The provider adapter, strict LLM JSON validation, deterministic
+  teacher/prompt aggregation, and production wiring that populates
+  `qualitative_summary` remain pending. No LLM output is represented as
+  validated measurement.
+- Verification: 51 unit tests, Python compilation, `git diff --check`, and a
+  structured-summary PDF smoke test passed. Commit: pending.
+
 ## 2026-08-25
 
 ### 16:43:47 - Rebased QC findings onto the Aug 25 final roster

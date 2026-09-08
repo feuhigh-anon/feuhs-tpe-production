@@ -5,7 +5,11 @@ import pandas as pd
 
 from feval.ingestion import build_column_matches, normalize_responses, score_likert_value
 from feval.questions import DEFAULT_QUESTION_BLOCKS
-from feval.pdf_report import qualitative_feedback_sections, summarize_teacher_qualitative_feedback
+from feval.pdf_report import (
+    qualitative_feedback_sections,
+    structured_qualitative_feedback_sections,
+    summarize_teacher_qualitative_feedback,
+)
 from feval.reporting import build_analysis_report
 from feval.sample_data import make_demo_evaluation_export
 from feval.text import (
@@ -52,6 +56,7 @@ class PipelineTest(unittest.TestCase):
         self.assertAlmostEqual(report.component_weights["weight"].sum(), 1.0, places=5)
         self.assertTrue((report.component_weights["weight"] >= 0).all())
         self.assertEqual(set(report.component_weights["estimation_method"]), {"fixed_policy_weights"})
+        self.assertTrue((report.open_ended["appreciated_interpretable_count"] >= 0).all())
 
     def test_blocks_keep_teacher_performance_items_separate(self):
         shs = DEFAULT_QUESTION_BLOCKS["shs"]
@@ -228,6 +233,36 @@ class PipelineTest(unittest.TestCase):
         for prompt, summary in sections:
             self.assertTrue(prompt)
             self.assertEqual(summary.count("."), 3)
+
+    def test_structured_qualitative_summary_is_teacher_isolated(self):
+        summary = pd.DataFrame(
+            [
+                {
+                    "teacher": "Teacher A",
+                    "prompt_type": "appreciation",
+                    "interpretable_count": 4,
+                    "abstained_count": 1,
+                    "response_count": 5,
+                    "statement_1": "Students valued clear explanations.",
+                    "statement_2": "Students valued worked examples.",
+                    "statement_3": "Students valued patient support.",
+                    "status": "complete",
+                    "model_status": "validated",
+                },
+                {
+                    "teacher": "Teacher B",
+                    "prompt_type": "appreciation",
+                    "statement_1": "Should not appear.",
+                    "statement_2": "Should not appear.",
+                    "statement_3": "Should not appear.",
+                },
+            ]
+        )
+        sections = structured_qualitative_feedback_sections(summary, "Teacher A")
+        self.assertEqual(len(sections), 1)
+        self.assertIn("Students valued clear explanations.", sections[0][1])
+        self.assertIn("Interpretable comments: 4", sections[0][2])
+        self.assertNotIn("Should not appear", sections[0][1])
 
 
 if __name__ == "__main__":

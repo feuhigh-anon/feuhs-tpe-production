@@ -21,6 +21,7 @@ class AnalysisReport:
     component_weights: pd.DataFrame
     reliability: pd.DataFrame
     open_ended: pd.DataFrame
+    qualitative_summary: pd.DataFrame | None = None
 
 
 def build_analysis_report(

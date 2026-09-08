@@ -83,6 +83,43 @@ def qualitative_feedback_sections(
     return sections
 
 
+def structured_qualitative_feedback_sections(
+    qualitative_summary: pd.DataFrame | None,
+    teacher: str,
+    block_id: str = "shs",
+) -> list[tuple[str, str, str]]:
+    """Format isolated teacher/prompt summaries for PDF rendering."""
+    if qualitative_summary is None or qualitative_summary.empty:
+        return []
+    required = {"teacher", "prompt_type", "statement_1", "statement_2", "statement_3"}
+    if not required.issubset(qualitative_summary.columns):
+        return []
+
+    prompt_meta = PROMPT_META.get(block_id.lower(), PROMPT_META["shs"])
+    prompt_keys = {"appreciation": "oe1", "appreciated": "oe1", "suggestion": "oe2", "experience": "oe3"}
+    sections = []
+    rows = qualitative_summary[qualitative_summary["teacher"] == teacher]
+    for _, row in rows.iterrows():
+        prompt_key = prompt_keys.get(str(row.get("prompt_type", "")).strip().lower())
+        if not prompt_key:
+            continue
+        statements = [str(row.get(f"statement_{index}", "")).strip() for index in range(1, 4)]
+        statements = [statement for statement in statements if statement and statement.lower() != "nan"]
+        if not statements:
+            continue
+        metadata = "; ".join(
+            value
+            for value in (
+                _structured_count_text(row),
+                str(row.get("status", "")).strip(),
+                str(row.get("model_status", "")).strip(),
+            )
+            if value and value.lower() != "nan"
+        )
+        sections.append((prompt_meta[prompt_key]["prompt"], " ".join(statements), metadata))
+    return sections
+
+
 def build_teacher_pdf_report(
     report,
     teacher: str,
@@ -102,6 +139,7 @@ def build_teacher_pdf_report(
     output = Path(output_path)
     summary_row = _one_teacher_row(report.summary, teacher)
     qualitative_row = _one_teacher_row(report.open_ended, teacher, required=False)
+    qualitative_summary = getattr(report, "qualitative_summary", None)
 
     doc = SimpleDocTemplate(
         str(output),
@@ -127,6 +165,7 @@ def build_teacher_pdf_report(
             evaluation_date=evaluation_date,
             summary_row=summary_row,
             qualitative_row=qualitative_row,
+            qualitative_summary=qualitative_summary,
             block_id=block_id,
         )
     )
@@ -157,12 +196,18 @@ def _single_page_report(
     evaluation_date: str,
     summary_row: pd.Series,
     qualitative_row: pd.Series,
+    qualitative_summary: pd.DataFrame | None,
     block_id: str,
 ) -> list[Any]:
     final_score = _number(summary_row.get("final_teacher_rating_1_5"))
     evaluator_count = int(_number(summary_row.get("responses")))
     report_date = evaluation_date or date.today().isoformat()
-    qualitative_sections = qualitative_feedback_sections(qualitative_row, block_id=block_id)
+    structured_sections = structured_qualitative_feedback_sections(
+        qualitative_summary, teacher, block_id=block_id
+    )
+    qualitative_sections = structured_sections or [
+        (prompt, summary, "") for prompt, summary in qualitative_feedback_sections(qualitative_row, block_id=block_id)
+    ]
     logo = Image(str(LOGO_PATH), width=0.42 * inch, height=0.512 * inch)
     header = Table(
         [[logo, Paragraph("Teacher Performance Evaluation by Students", styles["report_title"])]],
@@ -195,14 +240,11 @@ def _single_page_report(
         Paragraph(f"{final_score:.2f} / 5.00", styles["score"]),
         Spacer(1, 0.14 * inch),
     ]
-    for prompt, summary in qualitative_sections:
-        story.extend(
-            [
-                Paragraph(escape(prompt), styles["h2"]),
-                Paragraph(escape(summary), styles["summary_text"]),
-                Spacer(1, 0.06 * inch),
-            ]
-        )
+    for prompt, summary, metadata in qualitative_sections:
+        story.append(Paragraph(escape(prompt), styles["h2"]))
+        if metadata:
+            story.append(Paragraph(escape(metadata), styles["metadata"]))
+        story.extend([Paragraph(escape(summary), styles["summary_text"]), Spacer(1, 0.06 * inch)])
     story.extend(
         [
         Paragraph(
@@ -226,6 +268,25 @@ def _normalize_phrase_list(raw_value: object) -> list[str]:
             part = part[:137].rstrip() + "..."
         normalized.append(part)
     return normalized
+
+
+def _structured_count_text(row: pd.Series) -> str:
+    """Format deterministic counts without exposing raw response text."""
+    interpretable = row.get("interpretable_count", row.get("comment_count", ""))
+    abstained = row.get("abstained_count", "")
+    total = row.get("response_count", "")
+    parts = []
+    if _has_value(interpretable):
+        parts.append(f"Interpretable comments: {int(_number(interpretable))}")
+    if _has_value(abstained):
+        parts.append(f"Abstained: {int(_number(abstained))}")
+    if _has_value(total):
+        parts.append(f"Responses: {int(_number(total))}")
+    return "; ".join(parts)
+
+
+def _has_value(value: object) -> bool:
+    return value is not None and not (isinstance(value, str) and not value.strip()) and not pd.isna(value)
 
 
 def _one_teacher_row(table: pd.DataFrame, teacher: str, required: bool = True) -> pd.Series:
