@@ -248,7 +248,7 @@ def analyze_open_ended(
     Parameters
     ----------
     normalized : NormalizedExport
-        SharePoint/MS Forms export normalized to canonical column names.
+        Evaluation export normalized to canonical column names.
     top_n : int
         Maximum number of semantic frames to retain in the summary field.
     block_id : str

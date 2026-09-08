@@ -1,4 +1,4 @@
-"""SharePoint/MS Forms export ingestion and normalization."""
+"""Evaluation-export ingestion and response normalization."""
 
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ LIKERT_MAP = {
 }
 
 
-def read_sharepoint_export(source) -> pd.DataFrame:
-    """Read a SharePoint/MS Forms export from CSV or Excel."""
+def read_evaluation_export(source) -> pd.DataFrame:
+    """Read a CSV or Excel evaluation export."""
 
     name = str(getattr(source, "name", source)).lower()
     if hasattr(source, "seek"):
@@ -140,7 +140,7 @@ def normalize_responses(
     section_column: Optional[str] = None,
     respondent_column: Optional[str] = None,
 ) -> NormalizedExport:
-    """Normalize a SharePoint export into canonical item-id columns."""
+    """Normalize an evaluation export into canonical item-id columns."""
 
     if teacher_column not in raw.columns:
         raise ValueError(f"Teacher column {teacher_column!r} was not found in the export.")
@@ -199,7 +199,7 @@ def load_and_normalize(
 ) -> NormalizedExport:
     """Convenience helper for one-shot reading, matching, and normalization."""
 
-    raw = read_sharepoint_export(source)
+    raw = read_evaluation_export(source)
     teacher_column = teacher_column or infer_best_column(raw.columns, block.teacher_aliases)
     if not teacher_column:
         raise ValueError("Could not infer the teacher column. Please provide one explicitly.")

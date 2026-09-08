@@ -7,7 +7,7 @@ from feval.ingestion import build_column_matches, normalize_responses, score_lik
 from feval.questions import DEFAULT_QUESTION_BLOCKS
 from feval.pdf_report import qualitative_feedback_sections, summarize_teacher_qualitative_feedback
 from feval.reporting import build_analysis_report
-from feval.sample_data import make_demo_sharepoint_export
+from feval.sample_data import make_demo_evaluation_export
 from feval.text import (
     flag_verbose_responses,
     is_substantive_comment,
@@ -25,7 +25,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_shs_demo_pipeline(self):
         block = DEFAULT_QUESTION_BLOCKS["shs"]
-        raw = make_demo_sharepoint_export(block, rows=45)
+        raw = make_demo_evaluation_export(block, rows=45)
         matches = build_column_matches(raw.columns, block)
         normalized = normalize_responses(
             raw=raw,
@@ -76,7 +76,7 @@ class PipelineTest(unittest.TestCase):
             "What did you like the most about your teacher's way of teaching?",
         )
 
-    def test_manual_column_override_with_sharepoint_headers(self):
+    def test_manual_column_override_with_evaluation_headers(self):
         block = DEFAULT_QUESTION_BLOCKS["jhs"]
         raw = pd.DataFrame(
             {

@@ -7,10 +7,10 @@ import io
 import pandas as pd
 import streamlit as st
 
-from feval.ingestion import build_column_matches, infer_best_column, normalize_responses, read_sharepoint_export
+from feval.ingestion import build_column_matches, infer_best_column, normalize_responses, read_evaluation_export
 from feval.questions import DEFAULT_QUESTION_BLOCKS
 from feval.reporting import build_analysis_report
-from feval.sample_data import make_demo_sharepoint_export
+from feval.sample_data import make_demo_evaluation_export
 from feval.scoring import WEIGHT_EXPERIENCE, WEIGHT_INSTRUCTIONAL, WEIGHT_QUALITATIVE
 
 
@@ -19,7 +19,7 @@ st.set_page_config(page_title="Faculty Evaluation Aggregator", layout="wide")
 
 def main() -> None:
     st.title("Faculty Evaluation Aggregator")
-    st.caption("SharePoint exports · policy-weighted composite scoring · bounded rater credibility · partial pooling")
+    st.caption("Evaluation exports · policy-weighted composite scoring · bounded response-quality weighting · partial pooling")
 
     weights = render_weight_controls()
 
@@ -76,19 +76,19 @@ def render_block(block, weights: tuple[float, float, float]) -> None:
     st.subheader(block.label)
     use_demo = st.toggle("Use demo data", value=False, key=f"{block.id}-demo")
     uploaded = st.file_uploader(
-        "SharePoint export",
+        "Evaluation export",
         type=["xlsx", "xls", "csv"],
         key=f"{block.id}-upload",
     )
 
     raw = None
     if use_demo:
-        raw = make_demo_sharepoint_export(block)
+        raw = make_demo_evaluation_export(block)
     elif uploaded is not None:
-        raw = read_sharepoint_export(uploaded)
+        raw = read_evaluation_export(uploaded)
 
     if raw is None:
-        st.info("Upload a SharePoint export or switch on demo data.")
+        st.info("Upload an evaluation export or switch on demo data.")
         return
 
     st.dataframe(raw.head(8), use_container_width=True)

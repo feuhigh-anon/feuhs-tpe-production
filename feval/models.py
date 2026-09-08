@@ -80,7 +80,7 @@ class ColumnMatch:
 
 @dataclass
 class NormalizedExport:
-    """A SharePoint/MS Forms export normalized into analysis-ready columns."""
+    """An evaluation export normalized into analysis-ready columns."""
 
     block: QuestionBlock
     raw: pd.DataFrame

@@ -1,4 +1,4 @@
-"""Demo SharePoint-style exports for local testing and app preview."""
+"""Synthetic evaluation exports for local testing and app preview."""
 
 from __future__ import annotations
 
@@ -19,13 +19,13 @@ LIKERT_LABELS = {
 }
 
 
-def make_demo_sharepoint_export(
+def make_demo_evaluation_export(
     block: QuestionBlock,
     rows: int = 90,
     teachers: Sequence[str] = ("A. Santos", "B. Reyes", "C. Lim"),
     seed: int = 7,
 ) -> pd.DataFrame:
-    """Create a synthetic export with realistic SharePoint/MS Forms-style headers."""
+    """Create a synthetic evaluation export with realistic form-style headers."""
 
     random.seed(seed)
     teacher_quality = {teacher: random.uniform(3.2, 4.7) for teacher in teachers}

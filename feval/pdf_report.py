@@ -160,7 +160,6 @@ def _single_page_report(
     block_id: str,
 ) -> list[Any]:
     final_score = _number(summary_row.get("final_teacher_rating_1_5"))
-    score_label = rating_band(final_score)
     evaluator_count = int(_number(summary_row.get("responses")))
     report_date = evaluation_date or date.today().isoformat()
     qualitative_sections = qualitative_feedback_sections(qualitative_row, block_id=block_id)
