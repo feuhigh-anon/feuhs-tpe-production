@@ -5,6 +5,7 @@ import pandas as pd
 
 from feval.ingestion import build_column_matches, normalize_responses, score_likert_value
 from feval.questions import DEFAULT_QUESTION_BLOCKS
+from feval.pdf_report import qualitative_feedback_sections, summarize_teacher_qualitative_feedback
 from feval.reporting import build_analysis_report
 from feval.sample_data import make_demo_sharepoint_export
 from feval.text import (
@@ -193,6 +194,40 @@ class PipelineTest(unittest.TestCase):
         self.assertFalse(is_substantive_comment("Not applicable"))
         self.assertFalse(is_substantive_comment("   "))
         self.assertTrue(is_substantive_comment("The worked examples were helpful."))
+
+    def test_teacher_qualitative_summary_is_short_and_teacher_specific(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "teacher": "Teacher A",
+                    "appreciated_phrases": "Clear explanations|Supportive guidance|Engaging activities",
+                    "suggestion_phrases": "More examples|Faster pacing|More follow-up support",
+                    "experience_phrases": "Students feel respected and encouraged|Class is engaging|Students say learning is clear",
+                }
+            ]
+        )
+        summary = summarize_teacher_qualitative_feedback(frame)
+        self.assertIn("Pros", summary)
+        self.assertIn("Cons", summary)
+        self.assertNotIn("Representative", summary)
+        self.assertLess(len(summary.split()), 35)
+
+    def test_teacher_qualitative_feedback_is_separated_into_three_sentences_per_prompt(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "teacher": "Teacher A",
+                    "appreciated_phrases": "Clear explanations|Engaging activities",
+                    "suggestion_phrases": "More examples|Faster pacing",
+                    "experience_phrases": "Student support|Learning materials",
+                }
+            ]
+        )
+        sections = qualitative_feedback_sections(frame, block_id="shs")
+        self.assertEqual(len(sections), 3)
+        for prompt, summary in sections:
+            self.assertTrue(prompt)
+            self.assertEqual(summary.count("."), 3)
 
 
 if __name__ == "__main__":

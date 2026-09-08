@@ -2,25 +2,85 @@
 
 from __future__ import annotations
 
-import json
+from datetime import date
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
+from xml.sax.saxutils import escape
 
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import (
-    PageBreak,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from feval.text import PROMPT_META
+
+
+LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "feu-high-school-logo.png"
+
+
+def summarize_teacher_qualitative_feedback(open_ended: pd.DataFrame | pd.Series) -> str:
+    """Return a compact teacher-specific qualitative summary in sentence form."""
+    if isinstance(open_ended, pd.DataFrame):
+        if open_ended.empty:
+            return "Pros: no dominant strengths. Cons: no dominant concerns."
+        row = open_ended.iloc[0]
+    else:
+        row = open_ended
+
+    pros = _normalize_phrase_list(row.get("appreciated_phrases", ""))
+    if not pros:
+        pros = _normalize_phrase_list(row.get("experience_phrases", ""))
+    cons = _normalize_phrase_list(row.get("suggestion_phrases", ""))
+    if not cons:
+        cons = _normalize_phrase_list(row.get("experience_phrases", ""))
+
+    pros_text = "; ".join(pros[:3]) if pros else "no dominant strengths"
+    cons_text = "; ".join(cons[:3]) if cons else "no dominant concerns"
+    return f"Pros: {pros_text}. Cons: {cons_text}."
+
+
+def qualitative_feedback_sections(
+    open_ended: pd.DataFrame | pd.Series,
+    block_id: str = "shs",
+) -> list[tuple[str, str]]:
+    """Return one three-sentence aggregate summary for each open-ended prompt."""
+    if isinstance(open_ended, pd.DataFrame):
+        row = open_ended.iloc[0] if not open_ended.empty else pd.Series(dtype=object)
+    else:
+        row = open_ended
+
+    prompt_meta = PROMPT_META.get(block_id.lower(), PROMPT_META["shs"])
+    prompts = (
+        ("appreciated_phrases", "oe1", "appreciated"),
+        ("suggestion_phrases", "oe2", "suggestion"),
+        ("experience_phrases", "oe3", "experience"),
+    )
+    sections = []
+    for field, prompt_key, prompt_type in prompts:
+        themes = _normalize_phrase_list(row.get(field, ""))
+        theme_text = ", ".join(themes[:3]) if themes else "no dominant theme was identified"
+        if prompt_type == "appreciated":
+            sentences = (
+                f"Students most often appreciated {theme_text}.",
+                f"The recurring positive themes were {theme_text}.",
+                "These comments identify the teaching practices students valued most.",
+            )
+        elif prompt_type == "suggestion":
+            sentences = (
+                f"Students suggested attention to {theme_text}.",
+                f"The recurring improvement themes were {theme_text}.",
+                "These suggestions identify areas for continued teaching development.",
+            )
+        else:
+            sentences = (
+                f"Students described their learning experience through {theme_text}.",
+                f"The recurring experience themes were {theme_text}.",
+                f"Overall, the feedback reflects {theme_text}.",
+            )
+        sections.append((prompt_meta[prompt_key]["prompt"], " ".join(sentences)))
+    return sections
 
 
 def build_teacher_pdf_report(
@@ -35,51 +95,13 @@ def build_teacher_pdf_report(
     academic_year: str = "",
     term: str = "",
     evaluation_period: str = "",
+    evaluation_date: str = "",
 ) -> Path:
-    """
-    Build a confidential faculty-use PDF report for one teacher.
-
-    Parameters
-    ----------
-    report : object
-        AnalysisReport-like object with summary, reliability, open_ended, and
-        component_weights DataFrames.
-    teacher : str
-        Teacher name as it appears in the report summary.
-    output_path : str | Path
-        Destination PDF path.
-    block_id : str
-        Prompt metadata block, usually "shs" or "jhs".
-    subject : str
-        Subject name for the cover page.
-    section : str
-        Section or class label for the cover page.
-    institution : str
-        Institution label for the cover page.
-    academic_year : str
-        Academic year label.
-    term : str
-        Academic term label.
-    evaluation_period : str
-        Evaluation period label.
-
-    Returns
-    -------
-    pathlib.Path
-        The written PDF path.
-
-    Methodological note
-    -------------------
-    The PDF discloses the institutional composite formula and separates score
-    evidence from qualitative diagnostics so faculty receive both a concise
-    rating and the context needed for instructional reflection.
-    """
+    """Build a single-page confidential faculty report using only aggregate results."""
 
     output = Path(output_path)
     summary_row = _one_teacher_row(report.summary, teacher)
     qualitative_row = _one_teacher_row(report.open_ended, teacher, required=False)
-    reliability = report.reliability.iloc[0] if not report.reliability.empty else pd.Series(dtype=object)
-    weights = _component_weight_lookup(report.component_weights)
 
     doc = SimpleDocTemplate(
         str(output),
@@ -92,9 +114,8 @@ def build_teacher_pdf_report(
     )
     styles = _styles()
     story = []
-
     story.extend(
-        _cover_page(
+        _single_page_report(
             styles,
             teacher=teacher,
             subject=subject,
@@ -103,34 +124,17 @@ def build_teacher_pdf_report(
             academic_year=academic_year,
             term=term,
             evaluation_period=evaluation_period,
+            evaluation_date=evaluation_date,
+            summary_row=summary_row,
+            qualitative_row=qualitative_row,
+            block_id=block_id,
         )
     )
-    story.append(PageBreak())
-    story.extend(_score_summary_page(styles, summary_row, reliability, weights))
-    story.append(PageBreak())
-    story.extend(_qualitative_page(styles, qualitative_row, block_id))
-    story.append(PageBreak())
-    story.extend(_diagnostic_page(styles, qualitative_row))
-
     doc.build(story)
     return output
 
 
 def rating_band(score: float) -> str:
-    """
-    Convert a 1-5 final score into an administrator-readable band.
-
-    Parameters
-    ----------
-    score : float
-        Final teacher rating on the 1-5 scale.
-
-    Returns
-    -------
-    str
-        One of Outstanding, Proficient, Developing, or Needs Support.
-    """
-
     if score >= 4.50:
         return "Outstanding"
     if score >= 3.50:
@@ -140,7 +144,7 @@ def rating_band(score: float) -> str:
     return "Needs Support"
 
 
-def _cover_page(
+def _single_page_report(
     styles: Mapping[str, ParagraphStyle],
     *,
     teacher: str,
@@ -150,173 +154,79 @@ def _cover_page(
     academic_year: str,
     term: str,
     evaluation_period: str,
+    evaluation_date: str,
+    summary_row: pd.Series,
+    qualitative_row: pd.Series,
+    block_id: str,
 ) -> list[Any]:
-    story = [
-        Paragraph(teacher, styles["cover_title"]),
-        Spacer(1, 0.35 * inch),
-        Paragraph(f"Subject: {subject or 'Not specified'}", styles["normal"]),
-        Paragraph(f"Section: {section or 'Not specified'}", styles["normal"]),
-        Paragraph(f"Institution: {institution or 'Not specified'}", styles["normal"]),
-        Paragraph(f"Academic Year: {academic_year or 'Not specified'}", styles["normal"]),
-        Paragraph(f"Term: {term or 'Not specified'}", styles["normal"]),
-        Paragraph(f"Evaluation Period: {evaluation_period or 'Not specified'}", styles["normal"]),
-        Spacer(1, 5.2 * inch),
-        Paragraph("CONFIDENTIAL - FOR FACULTY USE ONLY", styles["confidential"]),
-    ]
-    return story
-
-
-def _score_summary_page(
-    styles: Mapping[str, ParagraphStyle],
-    row: pd.Series,
-    reliability: pd.Series,
-    weights: Mapping[str, float],
-) -> list[Any]:
-    final_score = _number(row.get("final_teacher_rating_1_5"))
-    instructional = _number(row.get("instructional_performance_1_5"))
-    experience = _number(row.get("overall_experience_1_5"))
-    qualitative = _number(row.get("qualitative_score_1_5"))
-
-    score_rows = [
-        ["Component", "Policy Weight", "Weighted Score", "Contribution"],
-        [
-            "Instructional Performance (Part 1)",
-            _pct(weights["instructional_performance"]),
-            _fmt(instructional),
-            _fmt(instructional * weights["instructional_performance"]),
-        ],
-        [
-            "Overall Learning Experience (Part 2)",
-            _pct(weights["overall_experience"]),
-            _fmt(experience),
-            _fmt(experience * weights["overall_experience"]),
-        ],
-        [
-            "Qualitative Feedback (Part 4)",
-            _pct(weights["qualitative_evidence"]),
-            _fmt(qualitative),
-            _fmt(qualitative * weights["qualitative_evidence"]),
-        ],
-        ["COMPOSITE", "100%", "-", _fmt(final_score)],
-    ]
-    table = Table(score_rows, colWidths=[2.8 * inch, 1.1 * inch, 1.2 * inch, 1.2 * inch])
-    table.setStyle(_table_style(header=True, composite_row=4))
-
-    alpha_1 = reliability.get("cronbach_alpha_instructional_block")
-    alpha_2 = reliability.get("cronbach_alpha_overall_experience_block")
-    alpha_1_text = _alpha_text(alpha_1)
-    alpha_2_text = _alpha_text(alpha_2)
-
-    story = [
-        Paragraph("Score Summary", styles["h1"]),
-        Spacer(1, 0.15 * inch),
-        table,
-        Spacer(1, 0.25 * inch),
-        Paragraph(f"Final Rating: {_fmt(final_score)} / 5.00   Band: {rating_band(final_score)}", styles["normal"]),
-        Paragraph(
-            f"95% CI: [{_fmt(row.get('rating_ci_low_1_5'))} - {_fmt(row.get('rating_ci_high_1_5'))}]",
-            styles["normal"],
-        ),
-        Spacer(1, 0.2 * inch),
-        Paragraph("Reliability", styles["h2"]),
-        Paragraph(f"Part 1 Cronbach alpha: {alpha_1_text}", styles["normal"]),
-        Paragraph(f"Part 2 Cronbach alpha: {alpha_2_text}", styles["normal"]),
-        Spacer(1, 0.2 * inch),
-        Paragraph("Response Quality", styles["h2"]),
-        Paragraph(
-            "N responses: "
-            f"{int(_number(row.get('responses'), default=0))}   "
-            f"Effective N: {_fmt(row.get('effective_response_count'))}   "
-            f"Mean RCI: {_fmt(row.get('mean_rci_weight'))}",
-            styles["normal"],
-        ),
-        Paragraph(f"Flagged responses: {int(_number(row.get('flagged_responses'), default=0))}", styles["normal"]),
-        Spacer(1, 0.2 * inch),
-        Paragraph(
-            "Composite = 0.50 x Instructional + 0.30 x Experience + 0.20 x Qualitative. "
-            "Weights are institutional policy, not data-derived.",
-            styles["italic"],
-        ),
-    ]
-    return story
-
-
-def _qualitative_page(styles: Mapping[str, ParagraphStyle], qualitative: pd.Series, block_id: str) -> list[Any]:
-    prompts = PROMPT_META.get(block_id, PROMPT_META["shs"])
-    story = [Paragraph("Qualitative Feedback Summary", styles["h1"]), Spacer(1, 0.15 * inch)]
-    for prompt_key, phrase_key, counts_key in (
-        ("oe1", "appreciated_phrases", "appreciated_frame_counts"),
-        ("oe2", "suggestion_phrases", "suggestion_frame_counts"),
-        ("oe3", "experience_phrases", "experience_frame_counts"),
-    ):
-        meta = prompts[prompt_key]
-        story.append(Paragraph(meta["prompt"], styles["h2"]))
-        story.append(Paragraph(str(qualitative.get(phrase_key, "no dominant theme detected")), styles["normal"]))
-        story.append(Spacer(1, 0.08 * inch))
-        story.append(_frame_count_table(qualitative.get(counts_key, "{}")))
-        story.append(Spacer(1, 0.08 * inch))
-
-    evidence = [snippet.strip() for snippet in str(qualitative.get("representative_evidence", "")).split("|") if snippet.strip()]
-    if evidence:
-        story.append(Paragraph("Representative snippets", styles["h2"]))
-        for snippet in evidence:
-            story.append(Paragraph(f"Student response: {snippet}", styles["normal"]))
-    story.append(Spacer(1, 0.2 * inch))
-    story.append(
-        Paragraph(
-            "Statements reflect the full distribution of responses received. Representative snippets were selected "
-            "to include both appreciative and critical feedback where present.",
-            styles["footer_note"],
-        )
+    final_score = _number(summary_row.get("final_teacher_rating_1_5"))
+    score_label = rating_band(final_score)
+    evaluator_count = int(_number(summary_row.get("responses")))
+    report_date = evaluation_date or date.today().isoformat()
+    qualitative_sections = qualitative_feedback_sections(qualitative_row, block_id=block_id)
+    logo = Image(str(LOGO_PATH), width=0.42 * inch, height=0.512 * inch)
+    header = Table(
+        [[logo, Paragraph("Teacher Performance Evaluation by Students", styles["report_title"])]],
+        colWidths=[0.6 * inch, 5.9 * inch],
     )
-    return story
-
-
-def _diagnostic_page(styles: Mapping[str, ParagraphStyle], qualitative: pd.Series) -> list[Any]:
-    flags = _verbose_flags(qualitative.get("verbose_flag_detail", "[]"))
-    story = [Paragraph("Diagnostic Appendix", styles["h1"]), Spacer(1, 0.15 * inch)]
-    if not flags:
-        story.append(Paragraph("No verbose qualitative responses were flagged for review.", styles["normal"]))
-        return story
-
-    story.append(Paragraph(f"Verbose qualitative responses flagged for review: {len(flags)}", styles["h2"]))
-    rows = [["Prompt", "Response index", "Word count", "Threshold", "Snippet"]]
-    for flag in flags:
-        rows.append(
+    header.setStyle(
+        TableStyle(
             [
-                str(flag.get("prompt", "")),
-                str(flag.get("response_index", "")),
-                str(flag.get("word_count", "")),
-                str(flag.get("threshold", "")),
-                str(flag.get("snippet", "")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.7, colors.Color(0.10, 0.36, 0.18)),
             ]
         )
-    table = Table(rows, colWidths=[0.8 * inch, 0.9 * inch, 0.8 * inch, 0.8 * inch, 3.0 * inch])
-    table.setStyle(_table_style(header=True))
-    story.append(table)
-    story.append(Spacer(1, 0.15 * inch))
-    story.append(
+    )
+
+    story = [
+        header,
+        Spacer(1, 0.12 * inch),
+        Paragraph(escape(teacher), styles["cover_title"]),
         Paragraph(
-            "These responses exceeded the expected length for their prompt type and are provided for human review. "
-            "Length alone does not indicate problematic content.",
-            styles["footer_note"],
+            f"Evaluation period: {escape(evaluation_period or 'Not specified')} | "
+            f"Report date: {escape(report_date)} | Evaluators: {evaluator_count}",
+            styles["normal"],
+        ),
+        Spacer(1, 0.25 * inch),
+        Paragraph("Final evaluation score", styles["h2"]),
+        Paragraph(f"{final_score:.2f} / 5.00", styles["score"]),
+        Spacer(1, 0.14 * inch),
+    ]
+    for prompt, summary in qualitative_sections:
+        story.extend(
+            [
+                Paragraph(escape(prompt), styles["h2"]),
+                Paragraph(escape(summary), styles["summary_text"]),
+                Spacer(1, 0.06 * inch),
+            ]
         )
+    story.extend(
+        [
+        Paragraph(
+            "This report summarizes the teacher's aggregated student feedback for confidential faculty review. "
+            "Student identities, section-level detail, and raw response snippets are intentionally excluded.",
+            styles["footer_note"],
+        ),
+        ]
     )
     return story
 
 
-def _frame_count_table(count_json: object) -> Table:
-    counts = _json_object(count_json)
-    rows = [["Frame", "Responses", "Percentage"]]
-    total = sum(int(value) for value in counts.values())
-    for frame, count in counts.items():
-        pct = f"{(int(count) / total * 100):.0f}%" if total else "0%"
-        rows.append([frame, str(count), pct])
-    if len(rows) == 1:
-        rows.append(["No detected frame", "0", "0%"])
-    table = Table(rows, colWidths=[3.4 * inch, 1.2 * inch, 1.2 * inch])
-    table.setStyle(_table_style(header=True))
-    return table
+def _normalize_phrase_list(raw_value: object) -> list[str]:
+    if raw_value is None or pd.isna(raw_value):
+        return []
+    cleaned = str(raw_value).replace("|", ";")
+    parts = [part.strip() for part in cleaned.split(";") if part.strip() and part.strip() != "no dominant theme detected"]
+    normalized = []
+    for part in parts:
+        if len(part) > 140:
+            part = part[:137].rstrip() + "..."
+        normalized.append(part)
+    return normalized
 
 
 def _one_teacher_row(table: pd.DataFrame, teacher: str, required: bool = True) -> pd.Series:
@@ -328,98 +238,85 @@ def _one_teacher_row(table: pd.DataFrame, teacher: str, required: bool = True) -
     return rows.iloc[0]
 
 
-def _component_weight_lookup(component_weights: pd.DataFrame) -> dict[str, float]:
-    if component_weights.empty:
-        return {
-            "instructional_performance": 0.50,
-            "overall_experience": 0.30,
-            "qualitative_evidence": 0.20,
-        }
-    return {
-        str(row["component"]): float(row["weight"])
-        for _, row in component_weights.iterrows()
-    }
-
-
 def _styles() -> dict[str, ParagraphStyle]:
     sample = getSampleStyleSheet()
     return {
-        "cover_title": ParagraphStyle("CoverTitle", parent=sample["Title"], fontName="Helvetica-Bold", fontSize=16),
-        "h1": ParagraphStyle("Heading1", parent=sample["Heading1"], fontName="Helvetica-Bold", fontSize=14),
-        "h2": ParagraphStyle("Heading2", parent=sample["Heading2"], fontName="Helvetica-Bold", fontSize=11),
-        "normal": ParagraphStyle("Normal", parent=sample["Normal"], fontName="Helvetica", fontSize=10, leading=13),
-        "italic": ParagraphStyle("Italic", parent=sample["Italic"], fontName="Helvetica-Oblique", fontSize=9, leading=12),
-        "footer_note": ParagraphStyle("FooterNote", parent=sample["Normal"], fontName="Helvetica", fontSize=8, leading=10),
+        "report_title": ParagraphStyle(
+            "ReportTitle",
+            parent=sample["Title"],
+            fontName="Helvetica-Bold",
+            fontSize=15,
+            leading=18,
+            textColor=colors.Color(0.08, 0.17, 0.25),
+        ),
+        "cover_title": ParagraphStyle(
+            "CoverTitle",
+            parent=sample["Title"],
+            fontName="Helvetica-Bold",
+            fontSize=18,
+            leading=22,
+            spaceAfter=5,
+            textColor=colors.Color(0.08, 0.17, 0.25),
+        ),
+        "h2": ParagraphStyle(
+            "Heading2",
+            parent=sample["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            leading=14,
+            spaceAfter=4,
+        ),
+        "normal": ParagraphStyle(
+            "Normal",
+            parent=sample["Normal"],
+            fontName="Helvetica",
+            fontSize=10,
+            leading=13,
+        ),
+        "metadata": ParagraphStyle(
+            "Metadata",
+            parent=sample["Normal"],
+            fontName="Helvetica",
+            fontSize=8,
+            leading=10,
+            textColor=colors.Color(0.35, 0.35, 0.35),
+        ),
+        "score": ParagraphStyle(
+            "Score",
+            parent=sample["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=22,
+            leading=24,
+            textColor=colors.Color(0.10, 0.36, 0.18),
+        ),
+        "summary_text": ParagraphStyle(
+            "SummaryText",
+            parent=sample["Normal"],
+            fontName="Helvetica",
+            fontSize=10,
+            leading=14,
+            spaceBefore=4,
+            spaceAfter=6,
+        ),
+        "footer_note": ParagraphStyle(
+            "FooterNote",
+            parent=sample["Normal"],
+            fontName="Helvetica",
+            fontSize=8,
+            leading=10,
+            textColor=colors.grey,
+        ),
         "confidential": ParagraphStyle(
             "Confidential",
             parent=sample["Normal"],
-            fontName="Helvetica",
+            fontName="Helvetica-Bold",
             fontSize=9,
             alignment=1,
+            textColor=colors.Color(0.42, 0.42, 0.42),
         ),
     }
-
-
-def _table_style(header: bool = False, composite_row: Optional[int] = None) -> TableStyle:
-    commands = [
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]
-    if header:
-        commands.extend(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ]
-        )
-    if composite_row is not None:
-        commands.extend(
-            [
-                ("FONTNAME", (0, composite_row), (-1, composite_row), "Helvetica-Bold"),
-                ("BACKGROUND", (0, composite_row), (-1, composite_row), colors.whitesmoke),
-            ]
-        )
-    return TableStyle(commands)
 
 
 def _number(value: object, default: float = 0.0) -> float:
     numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
     return float(numeric) if pd.notna(numeric) else default
-
-
-def _fmt(value: object) -> str:
-    return f"{_number(value):.2f}"
-
-
-def _pct(value: float) -> str:
-    return f"{value * 100:.0f}%"
-
-
-def _alpha_text(value: object) -> str:
-    numeric = _number(value, default=float("nan"))
-    if pd.isna(numeric):
-        return "n/a"
-    warning = " (review: below 0.70)" if numeric < 0.70 else ""
-    return f"{numeric:.2f}{warning}"
-
-
-def _json_object(value: object) -> dict[str, int]:
-    try:
-        data = json.loads(str(value))
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    return {str(key): int(val) for key, val in data.items()}
-
-
-def _verbose_flags(value: object) -> list[dict[str, Any]]:
-    try:
-        data = json.loads(str(value))
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
