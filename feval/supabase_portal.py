@@ -207,6 +207,7 @@ def load_portal_snapshot(
                 id=str(row["id"]),
                 school_level=str(section["school_level"]),
                 grade_level=int(section["grade_level"]),
+                # Strand is retained for model/schema compatibility; section is authoritative.
                 strand="",
                 section=str(section["code"]),
                 subject=str(subject["name"]),
@@ -264,6 +265,7 @@ def load_portal_snapshot(
         email=session.email,
         school_level=str(section["school_level"]),
         grade_level=int(section["grade_level"]),
+        # Strand is retained for model/schema compatibility; section is authoritative.
         strand="",
         section=str(section["code"]),
         evaluation_period=str(active_period["code"]),

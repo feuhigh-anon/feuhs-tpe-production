@@ -27,7 +27,7 @@ class StudentPortalTest(unittest.TestCase):
         self.assertEqual({item.section for item in assignments}, {"11STEM-DEMO"})
         self.assertNotIn("Statistics and Probability", {item.subject for item in assignments})
 
-    def test_section_is_not_selected_from_assignment_data(self):
+    def test_section_scope_is_authoritative_over_strand_metadata(self):
         other_section_student = replace(DEMO_STUDENT, section="11ABM-DEMO", strand="ABM")
         assignments = assignments_for_student(other_section_student, DEMO_ASSIGNMENTS)
 

@@ -230,10 +230,10 @@ def render_methodology() -> None:
         want one score, but the score should not be a plain average of only the
         first 10 items or a manual reading of selected comments.
 
-        The implementation follows measurement practice from educational
-        testing, item response theory, rater-quality analysis, semantic NLP,
-        and hierarchical modeling. SHS and JHS are scored separately because
-        the wording of their instruments differs.
+        The implementation is a provisional administrative scoring pipeline
+        using heuristic item weighting, bounded response-quality weighting,
+        semantic comment analysis, and empirical partial pooling. SHS and JHS
+        are scored separately because the wording of their instruments differs.
 
         #### Instrument structure
 
@@ -271,8 +271,9 @@ def render_methodology() -> None:
         with the construct receive slightly more influence, while weak or noisy
         items receive less influence.
 
-        The report keeps `naive_instructional_1_5` as a familiar comparison,
-        but the official score is `final_teacher_rating_1_5`.
+        The report keeps `naive_instructional_1_5` as a familiar comparison;
+        `final_teacher_rating_1_5` is the current composite output and should
+        be interpreted as provisional until the scoring method is validated.
 
         #### Student self-evaluation as credibility evidence
 
@@ -334,7 +335,7 @@ def render_methodology() -> None:
 
         | Column | Administrative meaning |
         | --- | --- |
-        | `final_teacher_rating_1_5` | Official 1-5 teacher rating after policy weighting and partial pooling. |
+        | `final_teacher_rating_1_5` | Current provisional 1-5 composite after policy weighting and partial pooling. |
         | `rating_ci_low_1_5` and `rating_ci_high_1_5` | Uncertainty interval for the final rating. |
         | `observed_teacher_rating_1_5` | Teacher signal before partial pooling. |
         | `instructional_performance_1_5` | Part 1 score after item weighting and rater weighting. |
@@ -349,7 +350,8 @@ def render_methodology() -> None:
         | `representative_evidence` | Short comment snippets supporting the qualitative statements. |
 
         The detailed methodology file in `docs/scoring_methodology.md` provides
-        the internal-review rationale and the research-grade calibration path.
+        the internal-review rationale and a proposed future calibration path;
+        it does not establish psychometric validity for the current score.
         """
     )
 

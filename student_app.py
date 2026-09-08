@@ -1,4 +1,4 @@
-"""Student-facing Streamlit prototype for teacher performance evaluations."""
+"""Student-facing Streamlit application for teacher performance evaluations."""
 
 from __future__ import annotations
 
@@ -54,6 +54,7 @@ RATING_LABELS = {
     4: "Agree",
     5: "Strongly Agree",
 }
+# Keep the pilot identifier until the deployment is explicitly promoted.
 CLIENT_VERSION = "streamlit-pilot-20260827"
 AUTH_STATE_KEYS = (
     "supabase_session",

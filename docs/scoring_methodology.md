@@ -133,7 +133,7 @@ The Streamlit sidebar allows internal review scenarios, but the default operatio
 
 ### Research-Grade Stage
 
-With enough historical SharePoint exports, the quantitative blocks should move to a multidimensional Graded Response Model or another polytomous IRT model:
+With enough historical evaluation exports, the quantitative blocks should move to a multidimensional Graded Response Model or another polytomous IRT model:
 
 ```text
 Instructional Performance theta = GRM(IP items)
@@ -358,7 +358,7 @@ Before full administrative adoption, the system should produce an internal valid
 
 ### Phase 2: Historical Calibration
 
-- Pool historical SharePoint exports by SHS and JHS.
+- Pool historical evaluation exports by SHS and JHS.
 - Estimate construct reliability and item diagnostics.
 - Evaluate whether historical data support revising the policy component weights.
 - Compare raw means, item-weighted scores, and partial-pooled teacher scores.

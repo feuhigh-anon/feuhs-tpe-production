@@ -258,8 +258,8 @@ def analyze_open_ended(
     Returns
     -------
     pandas.DataFrame
-        Teacher-level qualitative report with phrase summaries, deprecated
-        statement aliases, frame-count JSON fields, representative evidence,
+        Teacher-level qualitative report with phrase summaries, compatibility
+        statement fields, frame-count JSON fields, representative evidence,
         qualitative evidence index, and verbose-response diagnostics.
 
     Methodological note

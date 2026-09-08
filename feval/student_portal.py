@@ -48,7 +48,13 @@ def assignments_for_student(
     student: StudentProfile,
     assignments: Iterable[TeacherAssignment],
 ) -> tuple[TeacherAssignment, ...]:
-    """Return only active assignments authorized for the student's roster record."""
+    """Return active assignments matching the student's roster authority fields.
+
+    Section, school level, grade, and evaluation period are authoritative for
+    assignment scope. Strand remains in the compatibility model but is not
+    used for authorization because the current roster policy resolves scope
+    through the section code.
+    """
 
     matches = [
         assignment
@@ -85,6 +91,6 @@ def pending_assignments(
 
 
 def evaluation_key(student: StudentProfile, assignment: TeacherAssignment) -> str:
-    """Stable key mirrored by the future PostgreSQL uniqueness constraint."""
+    """Stable key aligned with the database uniqueness constraint."""
 
     return f"{student.id}:{assignment.id}:{student.evaluation_period}".lower()
