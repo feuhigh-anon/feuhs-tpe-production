@@ -10,6 +10,7 @@ from feval.pdf_report import (
     structured_qualitative_feedback_sections,
     summarize_teacher_qualitative_feedback,
 )
+from feval.qualitative_summary import build_llm_prompt, build_protocol_qualitative_summary
 from feval.reporting import build_analysis_report
 from feval.sample_data import make_demo_evaluation_export
 from feval.text import (
@@ -263,6 +264,73 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("Students valued clear explanations.", sections[0][1])
         self.assertIn("Interpretable comments: 4", sections[0][2])
         self.assertNotIn("Should not appear", sections[0][1])
+
+    def test_protocol_summary_has_three_rows_per_teacher_and_rehearsal_status(self):
+        block = DEFAULT_QUESTION_BLOCKS["shs"]
+        raw = make_demo_evaluation_export(block, rows=12)
+        matches = build_column_matches(raw.columns, block)
+        normalized = normalize_responses(
+            raw,
+            block,
+            teacher_column="Teacher Name",
+            section_column="Section",
+            respondent_column="Email",
+            column_map={item_id: match.column for item_id, match in matches.items()},
+        )
+        summary = build_protocol_qualitative_summary(normalized)
+        self.assertEqual(len(summary), normalized.responses["teacher"].nunique() * 3)
+        self.assertEqual(set(summary["prompt_type"]), {"appreciation", "suggestion", "experience"})
+        self.assertEqual(set(summary["generation_mode"]), {"deterministic_rehearsal"})
+        self.assertTrue((summary["statement_1"].str.len() > 0).all())
+
+    def test_protocol_summary_rejects_invalid_generator_shape(self):
+        block = DEFAULT_QUESTION_BLOCKS["shs"]
+        raw = make_demo_evaluation_export(block, rows=12)
+        matches = build_column_matches(raw.columns, block)
+        normalized = normalize_responses(
+            raw,
+            block,
+            teacher_column="Teacher Name",
+            section_column="Section",
+            respondent_column="Email",
+            column_map={item_id: match.column for item_id, match in matches.items()},
+        )
+        with self.assertRaises(ValueError):
+            build_protocol_qualitative_summary(normalized, generator=lambda unit: {"statements": []})
+
+    def test_llm_prompt_contains_only_one_prompt_type_comments(self):
+        block = DEFAULT_QUESTION_BLOCKS["shs"]
+        raw = make_demo_evaluation_export(block, rows=12)
+        matches = build_column_matches(raw.columns, block)
+        normalized = normalize_responses(
+            raw,
+            block,
+            teacher_column="Teacher Name",
+            section_column="Section",
+            respondent_column="Email",
+            column_map={item_id: match.column for item_id, match in matches.items()},
+        )
+        captured = []
+
+        def generator(unit):
+            captured.append(unit)
+            return {
+                "status": "complete",
+                "statements": [
+                    {"role": role, "text": f"Meaningful {role}."}
+                    for role in ("dominant_pattern", "secondary_pattern", "context_and_limitation")
+                ],
+            }
+
+        build_protocol_qualitative_summary(normalized, generator=generator)
+        appreciation = next(unit for unit in captured if unit["prompt_type"] == "appreciation")
+        prompt = build_llm_prompt(appreciation)
+        self.assertIn("Isolated comments:", prompt["user"])
+        self.assertIn("Prompt type: appreciation", prompt["user"])
+        self.assertNotIn("Prompt type: suggestion", prompt["user"])
+        self.assertNotIn("Prompt type: experience", prompt["user"])
+        self.assertNotIn("frequency table", prompt["user"])
+        self.assertIn("Synthesize meaning", prompt["system"])
 
 
 if __name__ == "__main__":

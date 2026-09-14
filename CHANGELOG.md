@@ -15,6 +15,81 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 
 ## 2026-09-08
 
+### Audited public repository boundary
+
+- Added explicit ignore rules for generated `outputs/`, local PDF validation
+  files, macro-enabled spreadsheets, and local tabular/database artifacts.
+- Removed two previously tracked generated PDF validation files whose
+  filenames contained a teacher name. They remain local-only and are not part
+  of the public source tree.
+- Confirmed that raw evaluation exports, rosters, credentials, and generated
+  teacher PDFs are excluded from the next commit. Existing Git history still
+  contains the old generated-PDF commit and would require a separate history
+  rewrite to remove it retroactively.
+- Verification: tracked-path audit, ignore-rule checks, credential-pattern
+  scan, and Git whitespace validation passed. Commit: pending.
+
+### Corrected qualitative synthesis boundary
+
+- The historical rehearsal revealed that frequency-to-sentence wording was not
+  a meaningful qualitative synthesis. `feval/qualitative_summary.py` now
+  constructs a provider-neutral LLM request containing the isolated source
+  comments for exactly one teacher and one prompt type, rather than only
+  theme counts.
+- The LLM request explicitly asks for interpretation, constructive meaning,
+  and actionable teaching implications across the three statement roles. It
+  still receives verified counts and cannot change them.
+- Added isolation coverage proving that appreciation, suggestion, and
+  experience comments are not combined in one LLM request.
+- The existing rehearsal PDFs remain deterministic because no approved LLM
+  provider or API credential is configured. They are diagnostic artifacts,
+  not the final qualitative reports.
+- Verification: 16 focused tests, compilation, and `git diff --check` passed.
+
+### Generated historical qualitative PDF rehearsal reports
+
+- Added `scripts/build_qualitative_pdf_rehearsal.py`, which reads one
+  historical SHS or JHS evaluation export, computes an explicitly labeled
+  unweighted mean across the 20 teacher-performance statements, and generates
+  one PDF per teacher using the protocol-shaped qualitative summary.
+- Generated 21 SHS and 31 JHS ignored rehearsal PDFs under
+  `outputs/qualitative_pdf_rehearsal/`. These reports are for workflow
+  inspection only; the score is not the approved psychometric model and the
+  qualitative text is not LLM-generated yet.
+- Example commands:
+  `.venv/bin/python scripts/build_qualitative_pdf_rehearsal.py --block shs`
+  and
+  `.venv/bin/python scripts/build_qualitative_pdf_rehearsal.py --block jhs`.
+- The PDF generator now accepts `score_label`, allowing test scores to be
+  distinguished from finalized evaluation scores without changing existing
+  callers.
+- Verification: 52 PDFs generated successfully; PDF text extraction was not
+  available because neither `pdftotext` nor `pypdf` is installed. Commit:
+  pending.
+
+### Built protocol-shaped qualitative rehearsal outputs
+
+- Added `feval/qualitative_summary.py` with the protocol contract for one
+  isolated `teacher` plus `prompt_type` unit. It enforces the three statement
+  roles, deterministic response/interpretability/abstention counts, and the
+  minimum-data thresholds before accepting a future LLM generator result.
+- Added `scripts/build_qualitative_summary_rehearsal.py` to exercise the final
+  report contract against historical SHS/JHS exports without calling an LLM.
+  Rehearsal rows are explicitly marked `generation_mode=deterministic_rehearsal`
+  and `model_status=not_run_rehearsal`.
+- Generated ignored rehearsal artifacts under
+  `exports/qualitative_review/protocol_rehearsal_shs.csv` and
+  `exports/qualitative_review/protocol_rehearsal_jhs.csv`. These are test
+  outputs, not current school-year teacher reports.
+- When the current school-year export arrives, run:
+  `.venv/bin/python scripts/build_qualitative_summary_rehearsal.py --block shs
+  --source <export> --output <summary.csv>` (or `--block jhs`). Replace the
+  rehearsal generator at the `generator` argument of
+  `build_protocol_qualitative_summary()` with the approved isolated LLM
+  provider; the PDF schema does not need to change.
+- Verification: 53 unit tests, Python compilation, and `git diff --check`
+  passed. Commit: pending.
+
 ### Clarified quantitative scoring status
 
 - Restored the existing pilot scorer's quantitative weight configuration. No

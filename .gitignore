@@ -13,10 +13,19 @@ supabase/.temp/
 Students Evaluation/
 *.xlsx
 *.xls
+*.xlsm
 *.csv
+*.parquet
+*.sqlite
+*.sqlite3
+*.db
 exports/
+outputs/
 uploads/
 *.inspect.ndjson
+
+# Local PDF render checks may contain teacher names or report content
+tmp_pdf_validation/
 
 # Private draft-instrument review and management materials
 docs/TPE_INSTRUMENT_REVIEW.md

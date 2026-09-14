@@ -133,6 +133,7 @@ def build_teacher_pdf_report(
     term: str = "",
     evaluation_period: str = "",
     evaluation_date: str = "",
+    score_label: str = "Final evaluation score",
 ) -> Path:
     """Build a single-page confidential faculty report using only aggregate results."""
 
@@ -166,6 +167,7 @@ def build_teacher_pdf_report(
             summary_row=summary_row,
             qualitative_row=qualitative_row,
             qualitative_summary=qualitative_summary,
+            score_label=score_label,
             block_id=block_id,
         )
     )
@@ -197,6 +199,7 @@ def _single_page_report(
     summary_row: pd.Series,
     qualitative_row: pd.Series,
     qualitative_summary: pd.DataFrame | None,
+    score_label: str,
     block_id: str,
 ) -> list[Any]:
     final_score = _number(summary_row.get("final_teacher_rating_1_5"))
@@ -236,7 +239,7 @@ def _single_page_report(
             styles["normal"],
         ),
         Spacer(1, 0.25 * inch),
-        Paragraph("Final evaluation score", styles["h2"]),
+        Paragraph(escape(score_label), styles["h2"]),
         Paragraph(f"{final_score:.2f} / 5.00", styles["score"]),
         Spacer(1, 0.14 * inch),
     ]
