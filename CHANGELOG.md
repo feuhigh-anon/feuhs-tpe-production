@@ -13,6 +13,55 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 - Do not include passwords, API keys, student rosters, response data, or other
   private information.
 
+## 2026-09-18
+
+### Reconciled local roster bundles with hosted staging state
+
+- Confirmed that the current local final and pilot bundles contain the same
+  deidentified roster shape: 75 sections, 105 teachers, 68 subjects, 2,657
+  students, 531 teaching assignments, and 18,114 student-assignment links.
+- Confirmed that both local manifests report zero errors and zero warnings,
+  with four informational `SHARED_CLASS` findings for teacher-specific
+  mappings in shared section-subject classes. The final bundle is identified as
+  `SY2026-Q1-FINAL-01` for `Q1-2026-2027`; the pilot bundle is identified as
+  `SY2026-Q1-PILOT-01` for `PILOT-2026-Q1`.
+- Confirmed through the redacted September 18 Supabase audit that hosted batch
+  1 contains the same six staging-table counts: 75 sections, 105 teachers,
+  68 subjects, 2,657 students, 531 teaching assignments, and 18,114
+  student-assignment links. The batch remains `draft`, with no
+  `validated_at` or `activated_at` timestamp.
+- Recorded the hosted validation discrepancy: batch 1 contains 2,657 error
+  findings and four informational findings, while the local final manifest is
+  clean. The exact hosted issue-code distribution remains pending a
+  read-only aggregate query; no issue code is inferred here.
+- Confirmed that application-facing tables still contain only synthetic pilot
+  data and that the staged roster is not visible to students. No Auth accounts
+  were provisioned for the 2,657 staged students, and no activation was
+  attempted.
+- Identified the next work item: inspect every uploaded staging roster and
+  reconcile changed teacher-subject-section assignments before rebuilding or
+  replacing the staged batch. Student-assignment links must be reviewed with
+  the teaching-assignment changes rather than assumed to remain valid.
+
+#### Pertinent source and evidence files
+
+- `exports/roster_import_SY2026_Q1_final/manifest.json` and
+  `exports/roster_import_SY2026_Q1_pilot/manifest.json`: local bundle
+  manifests and validation summaries.
+- `exports/supabase_roster_audit_20260918_140508.json` and `.csv`: redacted
+  hosted count and batch-state audit.
+- `scripts/upload_roster_staging.py`: draft-only upload and validation path;
+  it never activates a roster.
+- `scripts/audit_supabase_roster.py`: read-only hosted audit command.
+- `supabase/migrations/202608240001_roster_import_staging.sql`: staging
+  schema, validation, and activation rules.
+- `docs/DATABASE_LIFECYCLE.md`: staged-versus-active lifecycle and required
+  Auth/assignment review gates.
+
+- Verification: local manifest review, source-code review, and redacted hosted
+  audit review completed. Production activation and database mutations were not
+  performed. Commit: pending.
+
 ## 2026-09-08
 
 ### Audited public repository boundary
