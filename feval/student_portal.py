@@ -34,6 +34,8 @@ class TeacherAssignment:
     evaluation_period: str
     subject_code: str = ""
     is_active: bool = True
+    target_type: str = "subject_teacher"
+    target_label: str = ""
 
 
 @dataclass(frozen=True)

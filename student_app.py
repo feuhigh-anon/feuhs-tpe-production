@@ -6,6 +6,7 @@ import base64
 import html
 import os
 import re
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -14,6 +15,7 @@ import streamlit as st
 
 from feval.models import QuestionBlock
 from feval.questions import DEFAULT_QUESTION_BLOCKS
+from feval.portal_instruments import PORTAL_INSTRUMENTS
 from feval.student_demo_data import DEMO_ASSIGNMENTS, DEMO_STUDENT, DEMO_SUBMISSIONS
 from feval.student_portal import (
     SubmissionRecord,
@@ -35,7 +37,7 @@ from feval.supabase_portal import (
     restore_session,
     sign_in_with_password,
     sign_out,
-    submit_evaluation,
+    submit_target_evaluation,
 )
 
 
@@ -54,8 +56,7 @@ RATING_LABELS = {
     4: "Agree",
     5: "Strongly Agree",
 }
-# Keep the pilot identifier until the deployment is explicitly promoted.
-CLIENT_VERSION = "streamlit-pilot-20260827"
+CLIENT_VERSION = "streamlit-target-evaluations-20261023"
 AUTH_STATE_KEYS = (
     "supabase_session",
     "supabase_snapshot",
@@ -150,10 +151,16 @@ def select_assignment(assignment_id: str) -> None:
 
 def demo_portal_data():
     student = DEMO_STUDENT
-    assignments = assignments_for_student(student, DEMO_ASSIGNMENTS)
+    base = assignments_for_student(student, DEMO_ASSIGNMENTS)[:2]
+    adviser = replace(base[0], id="DEMO-HOMEROOM-ADVISER", subject="Homeroom Adviser",
+        subject_code="HRA", teacher_name="Teacher Adviser", teacher_email="adviser@example.invalid",
+        target_type="homeroom_adviser", target_label="Homeroom Adviser")
+    program = replace(base[0], id="DEMO-HOMEROOM-PROGRAM", subject="Be Brave Homeroom Program",
+        subject_code="HR", teacher_name="Homeroom Program", teacher_email="",
+        target_type="homeroom_program", target_label="Be Brave Homeroom Program")
+    assignments = (*base, adviser, program)
     submitted = submitted_assignment_ids(student, st.session_state.submissions)
-    block = DEFAULT_QUESTION_BLOCKS[student.school_level.lower()]
-    return student, assignments, submitted, block, tuple(st.session_state.submissions)
+    return student, assignments, submitted, PORTAL_INSTRUMENTS, tuple(st.session_state.submissions)
 
 
 def authenticated_portal_data(settings: SupabaseSettings):
@@ -168,7 +175,7 @@ def authenticated_portal_data(settings: SupabaseSettings):
         snapshot = load_portal_snapshot(client, refreshed_session)
         st.session_state.supabase_snapshot = snapshot
     submitted = submitted_assignment_ids(snapshot.student, snapshot.submissions)
-    return snapshot.student, snapshot.assignments, submitted, snapshot.question_block, snapshot.submissions
+    return snapshot.student, snapshot.assignments, submitted, snapshot.question_blocks, snapshot.submissions
 
 
 def current_assignment(assignments: tuple[TeacherAssignment, ...]) -> TeacherAssignment | None:
@@ -677,8 +684,9 @@ def render_login(settings: SupabaseSettings) -> None:
               </div>
               <div class="login-hero-rule"></div>
               <div class="login-hero-copy">
-                <p>Your feedback regarding our teachers is integral to upholding a high-quality learning environment at FEU High School. Please take a few moments to complete this evaluation thoughtfully. Your input helps the school assess teaching quality and improve the overall learning experience.</p>
-                <p>This evaluation covers teacher performance during the <strong>First Quarter of School Year 2026-2027</strong>. Base your assessment only on your experiences during this period.</p>
+                <p>Your feedback helps improve teaching and homeroom learning at FEU High School. Please complete the evaluations assigned to your student account.</p>
+                <p>You will complete four evaluations: two subject teachers, your Homeroom Adviser, and the Be Brave Homeroom Program. Each form uses its own questions and rating scale.</p>
+                <p>For this cycle, base your responses on your experiences during the Second Quarter of School Year 2026-2027. The active evaluation period is shown after sign-in.</p>
               </div>
             </div>
             """,
@@ -729,7 +737,7 @@ def render_login(settings: SupabaseSettings) -> None:
             """
             <section class="login-guidance" aria-labelledby="evaluation-guidance-title">
               <h2 id="evaluation-guidance-title">Evaluation guidance</h2>
-              <p><strong>Part 1: Teaching Performance and Your Overall Experience</strong> and <strong>Part 2: Self-Evaluation</strong> use the following agreement scale:</p>
+              <p>Subject-teacher and adviser ratings use a five-point agreement scale. The homeroom-program form uses a four-point agreement scale with no neutral choice.</p>
               <ol class="agreement-scale" aria-label="Five-point agreement scale">
                 <li><b>1</b>Strongly Disagree</li>
                 <li><b>2</b>Disagree</li>
@@ -737,8 +745,8 @@ def render_login(settings: SupabaseSettings) -> None:
                 <li><b>4</b>Agree</li>
                 <li><b>5</b>Strongly Agree</li>
               </ol>
-              <p><strong>Part 3: Qualitative Feedback</strong> asks for specific comments and examples. If you have no additional feedback for a required prompt, enter <strong>N/A</strong> or <strong>Not applicable</strong>.</p>
-              <p>Complete the evaluation for every teacher assigned to you. Incomplete evaluations can reduce the accuracy and representativeness of the results. After each submission, keep only the confirmation screen or capture a screenshot of it if your Homeroom Adviser requires evidence of completion. Do not share your evaluation answers.</p>
+              <p>Written feedback is required. Type a response for every prompt. If you have nothing to add, type <strong>Not applicable</strong> or <strong>No other comments</strong>.</p>
+              <p>Complete all four evaluations assigned to you. After each submission, keep only the confirmation screen if your Homeroom Adviser requires evidence of completion. Do not share your evaluation answers.</p>
               <p>Thank you for contributing honest and thoughtful feedback toward a better learning environment.</p>
               <div class="privacy-note"><strong>Privacy notice:</strong> Personal data collected through this evaluation will be processed in accordance with Republic Act No. 10173, the Data Privacy Act of 2012, and applicable school privacy policies for legitimate evaluation, administration, and educational-improvement purposes.</div>
             </section>
@@ -788,7 +796,7 @@ def render_header(back_page: str | None = None) -> None:
 def render_bottom_nav(active: str) -> None:
     nav_items = (
         ("home", "Home", ":material/home:"),
-        ("teachers", "My Teachers", ":material/groups:"),
+        ("teachers", "My Evaluations", ":material/rate_review:"),
         ("history", "My Evaluations", ":material/assignment_turned_in:"),
         ("help", "Help", ":material/help:"),
     )
@@ -862,6 +870,10 @@ def subject_mark(subject: str, subject_code: str = "") -> str:
 
 
 def assignment_subject_mark(assignment: TeacherAssignment) -> str:
+    if assignment.target_type == "homeroom_adviser":
+        return "HRA"
+    if assignment.target_type == "homeroom_program":
+        return "HR"
     return subject_mark(assignment.subject, getattr(assignment, "subject_code", ""))
 
 
@@ -897,7 +909,9 @@ def render_home(
     submissions: tuple[SubmissionRecord, ...],
 ) -> None:
     render_header()
-    completed = len(submitted)
+    assigned_ids = {assignment.id for assignment in assignments}
+    submitted_for_assignments = set(submitted).intersection(assigned_ids)
+    completed = len(submitted_for_assignments)
     total = len(assignments)
     progress = completed / total if total else 0
     full_name = " ".join(str(student.name or "").split())
@@ -950,7 +964,13 @@ def render_home(
         )
 
     pending_count = total - completed
-    latest = max(submissions, key=lambda item: item.submitted_at, default=None)
+    current_period_submissions = (
+        item for item in submissions
+        if item.student_id == student.id
+        and item.evaluation_period.casefold() == student.evaluation_period.casefold()
+        and item.assignment_id in assigned_ids
+    )
+    latest = max(current_period_submissions, key=lambda item: item.submitted_at, default=None)
     latest_assignment = next(
         (item for item in assignments if latest and item.id == latest.assignment_id),
         None,
@@ -982,7 +1002,7 @@ def render_home(
         with st.container(border=True, key="completed_card"):
             st.markdown(activity_html, unsafe_allow_html=True)
 
-    pending = pending_assignments(assignments, submitted)
+    pending = pending_assignments(assignments, submitted_for_assignments)
     if pending:
         if st.button(
             "Start Evaluation",
@@ -1008,7 +1028,7 @@ def render_assignment_card(assignment: TeacherAssignment, is_submitted: bool, in
                 <div class="assignment-copy">
                   <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
                   <div>
-                    <div class="assignment-subject">{html.escape(assignment.subject)}</div>
+                    <div class="assignment-subject">{html.escape(assignment.target_label or assignment.subject)}</div>
                     <div class="assignment-teacher">{html.escape(assignment.teacher_name)}</div>
                     <div class="status {status_class}"><span class="status-dot"></span>{status_text}</div>
                   </div>
@@ -1028,17 +1048,28 @@ def render_assignment_card(assignment: TeacherAssignment, is_submitted: bool, in
 
 def render_teachers(assignments, submitted: frozenset[str]) -> None:
     render_header()
-    st.markdown('<div class="section-heading">My Teachers</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-heading">My Evaluations</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-flavor">Only teachers assigned to your section are available for evaluation.</div>',
+        '<div class="section-flavor">Complete two subject-teacher evaluations, one adviser evaluation, and one homeroom-program evaluation.</div>',
         unsafe_allow_html=True,
     )
-    for index, assignment in enumerate(assignments):
-        render_assignment_card(assignment, assignment.id in submitted, index)
+    groups = (("Subject Teachers", "subject_teacher"), ("Homeroom Adviser", "homeroom_adviser"),
+              ("Homeroom Program", "homeroom_program"))
+    index = 0
+    for title, target_type in groups:
+        rows = [item for item in assignments if item.target_type == target_type]
+        if not rows:
+            continue
+        st.markdown(f'<div class="section-heading">{html.escape(title)}</div>', unsafe_allow_html=True)
+        for assignment in rows:
+            render_assignment_card(assignment, assignment.id in submitted, index)
+            index += 1
     render_bottom_nav("teachers")
 
 
 def evaluation_sections(block: QuestionBlock):
+    if block.form_sections:
+        return block.form_sections
     return (
         ("Teacher Performance", block.faculty_items, "rating"),
         ("Student Experience", block.overall_experience_items, "rating"),
@@ -1054,7 +1085,7 @@ def render_assignment_heading(assignment: TeacherAssignment) -> None:
           <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
           <div>
             <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
-            <div class="assignment-teacher">{html.escape(assignment.subject)}</div>
+            <div class="assignment-teacher">{html.escape(assignment.target_label or assignment.subject)}</div>
           </div>
         </div>
         """,
@@ -1062,13 +1093,18 @@ def render_assignment_heading(assignment: TeacherAssignment) -> None:
     )
 
 
-def render_evaluation(assignment: TeacherAssignment | None, block: QuestionBlock) -> None:
+def selected_question_block(assignment: TeacherAssignment, blocks) -> QuestionBlock:
+    return blocks.get(assignment.target_type) or DEFAULT_QUESTION_BLOCKS[assignment.school_level.lower()]
+
+
+def render_evaluation(assignment: TeacherAssignment | None, blocks) -> None:
     if assignment is None:
         navigate("teachers")
         return
 
     render_header("teachers")
     render_assignment_heading(assignment)
+    block = selected_question_block(assignment, blocks)
     sections = evaluation_sections(block)
     section_index = min(st.session_state.evaluation_section, len(sections) - 1)
     title, items, section_type = sections[section_index]
@@ -1078,37 +1114,31 @@ def render_evaluation(assignment: TeacherAssignment | None, block: QuestionBlock
 
     with st.form(f"evaluation_form_{assignment.id}_{section_index}", clear_on_submit=False):
         if section_type == "rating":
+            scale_max = max((item.rating_max for item in items), default=5)
+            scale_text = " · ".join(f"{value} {label}" for value, label in block.rating_labels if value <= scale_max)
+            st.caption(scale_text)
             for item in items:
                 widget_key = f"rating_{assignment.id}_{item.id}"
                 saved_value = st.session_state.answers.get(widget_key)
                 st.segmented_control(
                     item.text,
-                    options=[1, 2, 3, 4, 5],
+                    options=list(range(1, item.rating_max + 1)),
                     default=saved_value,
                     key=widget_key,
                     selection_mode="single",
                     width="stretch",
                 )
-                st.markdown(
-                    '<div class="rating-anchors"><span>Strongly Disagree</span><span>Strongly Agree</span></div>',
-                    unsafe_allow_html=True,
-                )
         else:
-            required_count = sum(item.required for item in items)
             st.caption(
-                f"All {required_count} required qualitative responses must be completed. Enter N/A or Not "
-                "applicable when you have no additional feedback."
+                'Written feedback is required. Type a response for every prompt. '
+                'If you have nothing to add, type “Not applicable” or “No other comments.”'
             )
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
-                st.text_area(
-                    item.text,
-                    value=st.session_state.comments.get(widget_key, ""),
-                    key=widget_key,
-                    height=110,
-                    max_chars=1000,
-                    placeholder="Enter feedback or N/A...",
-                )
+                old_value = st.session_state.comments.get(widget_key, "")
+                st.text_area(item.text, value=old_value,
+                    key=widget_key, height=110, max_chars=1000,
+                    placeholder='Type your response. If none, type “Not applicable” or “No other comments.”')
 
         back_col, next_col = st.columns(2)
         back_clicked = back_col.form_submit_button(
@@ -1150,14 +1180,11 @@ def render_evaluation(assignment: TeacherAssignment | None, block: QuestionBlock
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
                 value = st.session_state.get(widget_key, "").strip()
-                comment_values[widget_key] = value
                 if not value and item.required:
                     missing.append(item.text)
+                comment_values[widget_key] = value
             if missing:
-                st.error(
-                    f"Please complete the {len(missing)} remaining required qualitative responses before reviewing. "
-                    "Enter N/A or Not applicable when you have no additional feedback."
-                )
+                st.error(f"Please type a response for each of the {len(missing)} remaining qualitative prompts.")
                 return
             st.session_state.comments.update(comment_values)
 
@@ -1169,13 +1196,14 @@ def render_evaluation(assignment: TeacherAssignment | None, block: QuestionBlock
 
 def render_review(
     assignment: TeacherAssignment | None,
-    block: QuestionBlock,
+    blocks,
     student,
 ) -> None:
     if assignment is None:
         navigate("teachers")
         return
 
+    block = selected_question_block(assignment, blocks)
     render_header("evaluation")
     render_assignment_heading(assignment)
     st.markdown('<div class="section-heading">Review Your Responses</div>', unsafe_allow_html=True)
@@ -1186,7 +1214,7 @@ def render_review(
                 prefix = "rating" if section_type == "rating" else "comment"
                 key = f"{prefix}_{assignment.id}_{item.id}"
                 value = st.session_state.answers.get(key) if section_type == "rating" else st.session_state.comments.get(key)
-                display_value = RATING_LABELS.get(value, "Not answered") if section_type == "rating" else (value or "No comment")
+                display_value = dict(block.rating_labels).get(value, "Not answered") if section_type == "rating" else (value or "No response")
                 st.markdown(
                     f"""
                     <div class="review-row">
@@ -1222,7 +1250,7 @@ def render_review(
                     st.session_state.answers,
                     st.session_state.comments,
                 )
-                submit_evaluation(
+                submit_target_evaluation(
                     client,
                     assignment.id,
                     responses,
@@ -1279,7 +1307,7 @@ def render_submitted(assignment: TeacherAssignment | None, assignments, submitte
               <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
               <div>
                 <div class="assignment-subject">{html.escape(assignment.teacher_name)}</div>
-                <div class="assignment-teacher">{html.escape(assignment.subject)}</div>
+              <div class="assignment-teacher">{html.escape(assignment.target_label or assignment.subject)}</div>
                 <div class="submission-meta" style="padding-bottom:.35rem">Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div>
               </div>
             </div>
@@ -1329,7 +1357,7 @@ def render_history(assignments, submissions: tuple[SubmissionRecord, ...]) -> No
                   <div class="subject-mark">{html.escape(assignment_subject_mark(assignment))}</div>
                   <div>
                     <div class="assignment-subject">{html.escape(assignment.subject)}</div>
-                    <div class="assignment-teacher">{html.escape(assignment.teacher_name)}</div>
+                    <div class="assignment-teacher">{html.escape(assignment.target_label or assignment.subject)}</div>
                     <div class="history-submission-meta">Submitted on {submitted_at:%B %d, %Y %I:%M %p}</div>
                   </div>
                 </div>

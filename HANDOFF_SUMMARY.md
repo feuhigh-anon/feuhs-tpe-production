@@ -2,6 +2,36 @@
 
 This is the authoritative implementation handoff for the `new_eval` repository. It consolidates the backend measurement plan with the current Streamlit student portal, deployment decisions, security boundary, technical file map, known limitations, and next implementation sequence. Future conversations should inspect the repository and this document before changing either the student workflow or the scoring pipeline.
 
+## Current Rollout Status — 2026-11-03
+
+This status supersedes older questionnaire and roster statements below for the
+current rollout; dated history is retained for provenance.
+
+- The user confirmed the subject-teacher and Be Brave homeroom questionnaires
+  are finalized. Subject-teacher has a version 2 bank for JHS and SHS;
+  homeroom-adviser and homeroom-program have version 1 banks for both levels.
+- The user confirmed that migrations `202610230001_questionnaire_catalog.sql`
+  and `202610230002_multi_target_instruments.sql` were applied to Supabase on
+  2026-11-03. The first adds six versioned questionnaire banks; the second adds
+  target routing, student target links, and target submissions/responses.
+- The active cycle is Second Quarter SY 2026-2027. `Q2` is the evaluation
+  quarter; `Finals` identifies the selected teacher-schedule version.
+- The current Q2 master-list candidate contains 2,661 unique students and has
+  not been imported. The legacy uploader is not compatible with its
+  target-aware allocations.
+- The prepared synthetic pilot import is local at
+  `outputs/pilot_q2_target_import_preview_r02/`. It covers 45 existing
+  synthetic accounts and 180 target links, checks its required database
+  references, aligns those pilot accounts to current official sections, and
+  leaves period `PILOT-SY2026-2027-Q2-FINALS-01` in draft. It has not been run
+  and creates no Auth users.
+- The matching target-aware Streamlit code is local and has not been deployed.
+  Do not open the pilot period until the app is deployed and acceptance checks
+  are complete.
+- Current naming rules and data lifecycle are in
+  `docs/DATABASE_LIFECYCLE.md`; pilot instructions are in
+  `docs/PILOT_TEST_WORKFLOW.md`. The dated entries below remain historical.
+
 ## 1. Project Purpose
 
 The project replaces the previous practice of averaging only the first ten teacher-performance items and selectively reading qualitative comments. The target output is one defensible teacher rating on a 1-5 scale, while retaining component scores and evidence for internal review.

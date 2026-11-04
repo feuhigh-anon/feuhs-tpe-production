@@ -2,7 +2,7 @@
 
 ## Current State
 
-The repository contains three ordered migrations:
+The hosted project has five ordered migrations applied:
 
 1. `202608230001_initial_schema.sql` creates the relational model, indexes,
    Row Level Security policies, immutable-questionnaire guards, and atomic
@@ -12,17 +12,31 @@ The repository contains three ordered migrations:
 3. `202608240001_roster_import_staging.sql` adds private batch-based roster
    staging tables, database validation issues, import provenance, and a
    service-role-only activation transaction.
+4. `202610230001_questionnaire_catalog.sql` adds six versioned JHS/SHS
+   questionnaire banks for subject teacher, homeroom adviser, and homeroom
+   program evaluations.
+5. `202610230002_multi_target_instruments.sql` adds target-aware assignments,
+   period-specific instrument mappings, and target submission/response tables.
 
-All three migrations are now applied to the hosted project. This was confirmed
-with `supabase migration list`, which reports matching local and remote versions
-for `202608230001`, `202608230002`, and `202608240001`. They contain no real
-student roster, password, credential, or evaluation response. The
-Streamlit authentication/data adapter, synthetic alpha provisioner, and
-alpha-only live security verifier are implemented. The hosted login and normal
-student workflow have passed manual testing with synthetic accounts. The
-automated hosted verifier subsequently passed 26 of 26 checks with cleanup for
-each of SHS and JHS on 2026-08-23. See `live_security_verification_20260823.md`
-and `live_security_verification_jhs_20260823.md` for sanitized evidence.
+The first three migrations were confirmed with `supabase migration list`; the
+user subsequently confirmed the two target-aware migrations were pushed and
+applied on 2026-11-03. The first five migrations are therefore applied to the
+hosted project. The target-aware schema deployment does not itself import the
+Q2 student roster, create a Q2 pilot period, assign the six banks to a period,
+or link pilot accounts to targets. The user has not run the prepared Q2 pilot
+import SQL. The target-aware Streamlit changes remain local. Do not reapply
+these migrations.
+
+The earlier migrations contain no real student roster, password, credential,
+or evaluation response. The hosted login and legacy student workflow have
+passed manual testing with synthetic accounts. The automated hosted verifier
+passed 26 of 26 checks with cleanup for each of SHS and JHS on 2026-08-23. See
+`live_security_verification_20260823.md` and
+`live_security_verification_jhs_20260823.md` for sanitized evidence.
+
+The catalog alone does not make questionnaires visible to old pilot accounts.
+Visibility requires a period mapping and target links for the account. See
+[`TARGET_EVALUATION_PORTAL.md`](TARGET_EVALUATION_PORTAL.md).
 
 ## Create the Hosted Project
 
@@ -41,6 +55,11 @@ and `live_security_verification_jhs_20260823.md` for sanitized evidence.
 Do not load real students yet.
 
 ## Apply the Migrations
+
+The current hosted project already has all five migrations listed above. Do not
+reapply them. The workflow below is for a new project or a future reviewed
+migration; use `--dry-run` first and check that only the intended new migration
+is pending.
 
 The recommended workflow uses the Supabase CLI so the hosted database and Git
 migration history remain synchronized. Docker is needed only for a full local

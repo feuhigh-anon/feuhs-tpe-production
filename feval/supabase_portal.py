@@ -55,7 +55,7 @@ class PortalSnapshot:
     student: StudentProfile
     assignments: tuple[TeacherAssignment, ...]
     submissions: tuple[SubmissionRecord, ...]
-    question_block: QuestionBlock
+    question_blocks: Mapping[str, QuestionBlock]
 
 
 @dataclass(frozen=True)
@@ -151,31 +151,18 @@ def load_portal_snapshot(
     if not section.get("is_active", False):
         raise PortalDataError("The assigned section is inactive.")
 
-    links = _rows(
-        client.table("student_assignments")
-        .select("teaching_assignment_id,is_active")
-        .eq("student_id", session.user_id)
-        .eq("is_active", True)
-        .execute()
-    )
-    assignment_ids = [int(row["teaching_assignment_id"]) for row in links]
-    if not assignment_ids:
-        raise PortalDataError("No teacher assignments are available for this account.")
-
-    teaching_rows = _rows(
-        client.table("teaching_assignments")
-        .select("id,evaluation_period_id,section_id,subject_id,teacher_id,is_active")
-        .in_("id", assignment_ids)
-        .eq("is_active", True)
-        .execute()
-    )
-    teaching_rows = [
-        row for row in teaching_rows if int(row["section_id"]) == int(section["id"])
-    ]
-    if not teaching_rows:
-        raise PortalDataError("No active assignments match the student's roster section.")
-
-    period_ids = sorted({int(row["evaluation_period_id"]) for row in teaching_rows})
+    links = _rows(client.table("student_evaluation_targets")
+        .select("evaluation_target_id,is_active").eq("student_id", session.user_id)
+        .eq("is_active", True).execute())
+    target_ids = [int(row["evaluation_target_id"]) for row in links]
+    if not target_ids:
+        raise PortalDataError("No evaluation targets are available for this account.")
+    target_rows = _rows(client.table("evaluation_targets")
+        .select("id,evaluation_period_id,section_id,target_type,target_label,teacher_id,subject_id,program_id,is_active")
+        .in_("id", target_ids).eq("is_active", True).execute())
+    if not target_rows:
+        raise PortalDataError("No active evaluation targets match this roster.")
+    period_ids = sorted({int(row["evaluation_period_id"]) for row in target_rows})
     periods = _rows(
         client.table("evaluation_periods")
         .select("id,code,status,opens_at,closes_at")
@@ -187,12 +174,19 @@ def load_portal_snapshot(
         raise PortalDataError("There is no open evaluation period for this account.")
     active_period = min(open_periods, key=lambda row: _parse_datetime(row["closes_at"]))
     active_period_id = int(active_period["id"])
-    teaching_rows = [
-        row for row in teaching_rows if int(row["evaluation_period_id"]) == active_period_id
-    ]
+    target_rows = [row for row in target_rows if int(row["evaluation_period_id"]) == active_period_id]
+    target_types = {row["target_type"] for row in target_rows}
+    subject_targets = [r for r in target_rows if r["target_type"] == "subject_teacher"]
+    if len(subject_targets) != 2 or target_types != {"subject_teacher", "homeroom_adviser", "homeroom_program"}:
+        raise PortalDataError("The active roster must contain two subject teachers, one adviser, and one homeroom program.")
+    if sum(r["target_type"] == "homeroom_adviser" for r in target_rows) != 1 or sum(r["target_type"] == "homeroom_program" for r in target_rows) != 1:
+        raise PortalDataError("The active roster has duplicate or missing homeroom targets.")
+    subject_teacher_ids = {int(r["teacher_id"]) for r in subject_targets if r.get("teacher_id") is not None}
+    if len(subject_teacher_ids) != 2:
+        raise PortalDataError("The two subject-teacher targets must name distinct teachers.")
 
-    subject_ids = sorted({int(row["subject_id"]) for row in teaching_rows})
-    teacher_ids = sorted({int(row["teacher_id"]) for row in teaching_rows})
+    subject_ids = sorted({int(row["subject_id"]) for row in target_rows if row.get("subject_id") is not None})
+    teacher_ids = sorted({int(row["teacher_id"]) for row in target_rows if row.get("teacher_id") is not None})
     subjects = {
         int(row["id"]): row
         for row in _rows(
@@ -212,56 +206,61 @@ def load_portal_snapshot(
         )
     }
 
+    target_types_order = ("subject_teacher", "homeroom_adviser", "homeroom_program")
+    target_rows.sort(key=lambda r: (target_types_order.index(r["target_type"]), str(r.get("target_label") or "")))
     assignments = []
-    for row in teaching_rows:
-        subject = subjects.get(int(row["subject_id"]))
-        teacher = teachers.get(int(row["teacher_id"]))
-        if not subject or not teacher or not subject.get("is_active") or not teacher.get("is_active"):
-            continue
-        assignments.append(
-            TeacherAssignment(
-                id=str(row["id"]),
-                school_level=str(section["school_level"]),
-                grade_level=int(section["grade_level"]),
-                # Strand is retained for model/schema compatibility; section is authoritative.
-                strand="",
-                section=str(section["code"]),
-                subject=str(subject["name"]),
-                subject_code=str(subject.get("code") or ""),
-                teacher_name=str(teacher["display_name"]),
-                teacher_email=str(teacher.get("email") or ""),
-                evaluation_period=str(active_period["code"]),
-                is_active=True,
-            )
-        )
-    if not assignments:
-        raise PortalDataError("The authorized assignments are incomplete or inactive.")
+    for row in target_rows:
+        teacher = teachers.get(int(row["teacher_id"])) if row.get("teacher_id") is not None else None
+        subject = subjects.get(int(row["subject_id"])) if row.get("subject_id") is not None else None
+        target_type = row["target_type"]
+        if target_type in {"subject_teacher", "homeroom_adviser"} and (not teacher or not teacher.get("is_active")):
+            raise PortalDataError("An assigned teacher target is unavailable.")
+        if target_type == "subject_teacher" and (not subject or not subject.get("is_active")):
+            raise PortalDataError("An assigned subject target is unavailable.")
+        if target_type == "subject_teacher":
+            subject_name = str(subject["name"])
+            teacher_name = str(teacher["display_name"])
+            display_subject = subject_name
+            target_label = row.get("target_label") or subject_name
+        elif target_type == "homeroom_adviser":
+            teacher_name = str(teacher["display_name"])
+            display_subject = "Homeroom Adviser"
+            target_label = row.get("target_label") or teacher_name
+        else:
+            teacher_name = "Homeroom Program"
+            display_subject = str(row.get("target_label") or "Be Brave Homeroom Program")
+            target_label = display_subject
+        assignments.append(TeacherAssignment(
+            id=str(row["id"]), school_level=str(section["school_level"]),
+            grade_level=int(section["grade_level"]), strand="", section=str(section["code"]),
+            subject=display_subject, subject_code=str(subject.get("code") or "") if subject else "",
+            teacher_name=teacher_name, teacher_email=str(teacher.get("email") or "") if teacher else "",
+            evaluation_period=str(active_period["code"]), target_type=target_type,
+            target_label=str(target_label),
+        ))
 
-    instrument = _one(
-        client.table("evaluation_period_instruments")
-        .select("question_bank_id")
-        .eq("evaluation_period_id", active_period_id)
-        .eq("school_level", section["school_level"])
-        .limit(1)
-        .execute(),
-        "No questionnaire is assigned to the current evaluation period.",
-    )
-    question_bank_id = int(instrument["question_bank_id"])
-    question_rows = _rows(
-        client.table("question_items")
-        .select(
-            "id,stable_key,section_key,prompt,response_type,position,is_required,use_for_rci"
+    instrument_rows = _rows(client.table("evaluation_target_instruments")
+        .select("target_type,question_bank_id").eq("evaluation_period_id", active_period_id)
+        .eq("school_level", section["school_level"]).execute())
+    bank_ids = {row["target_type"]: int(row["question_bank_id"]) for row in instrument_rows}
+    if set(bank_ids) != set(target_types_order):
+        raise PortalDataError("One or more target-specific questionnaires are not configured.")
+    question_blocks = {}
+    for target_type in target_types_order:
+        bank_id = bank_ids[target_type]
+        bank = _one(client.table("question_banks").select("id,title,rating_labels")
+            .eq("id", bank_id).limit(1).execute(), "The assigned questionnaire is unavailable.")
+        question_rows = _rows(client.table("question_items")
+            .select("id,stable_key,section_key,section_title,section_position,prompt,response_type,position,is_required,use_for_rci,rating_max")
+            .eq("question_bank_id", bank_id).execute())
+        question_blocks[target_type] = question_block_from_rows(
+            str(section["school_level"]), bank_id, question_rows,
+            target_type=target_type, label=str(bank["title"]), rating_labels=bank.get("rating_labels") or {},
         )
-        .eq("question_bank_id", question_bank_id)
-        .execute()
-    )
-    question_block = question_block_from_rows(
-        str(section["school_level"]), question_bank_id, question_rows
-    )
 
     submission_rows = _rows(
-        client.table("evaluation_submissions")
-        .select("teaching_assignment_id,submitted_at,evaluation_period_id")
+        client.table("evaluation_target_submissions")
+        .select("evaluation_target_id,submitted_at,evaluation_period_id")
         .eq("student_id", session.user_id)
         .eq("evaluation_period_id", active_period_id)
         .execute()
@@ -269,7 +268,7 @@ def load_portal_snapshot(
     submissions = tuple(
         SubmissionRecord(
             student_id=session.user_id,
-            assignment_id=str(row["teaching_assignment_id"]),
+            assignment_id=str(row["evaluation_target_id"]),
             evaluation_period=str(active_period["code"]),
             submitted_at=_parse_datetime(row["submitted_at"]),
         )
@@ -290,9 +289,9 @@ def load_portal_snapshot(
     )
     return PortalSnapshot(
         student=student,
-        assignments=tuple(sorted(assignments, key=lambda item: item.subject.casefold())),
+        assignments=tuple(assignments),
         submissions=submissions,
-        question_block=question_block,
+        question_blocks=question_blocks,
     )
 
 
@@ -461,6 +460,10 @@ def question_block_from_rows(
     school_level: str,
     question_bank_id: int,
     rows: Sequence[Mapping[str, Any]],
+    *,
+    target_type: str = "subject_teacher",
+    label: str | None = None,
+    rating_labels: Mapping[str, Any] | None = None,
 ) -> QuestionBlock:
     grouped: dict[str, list[QuestionItem]] = {
         "teacher_performance": [],
@@ -468,34 +471,58 @@ def question_block_from_rows(
         "student_self_evaluation": [],
         "qualitative_feedback": [],
     }
-    for row in sorted(rows, key=lambda item: (str(item["section_key"]), int(item["position"]))):
+    sections: dict[str, list[QuestionItem]] = {}
+    titles: dict[str, str] = {}
+    section_positions: dict[str, int] = {}
+    for row in sorted(rows, key=lambda item: (int(item.get("section_position") or 1), int(item["position"]))):
         section_key = str(row["section_key"])
-        if section_key not in grouped:
+        if section_key not in grouped and not row.get("section_title"):
             raise PortalDataError(f"Unsupported questionnaire section: {section_key}")
-        grouped[section_key].append(
-            QuestionItem(
+        question = QuestionItem(
                 id=str(row["id"]),
                 text=str(row["prompt"]),
                 aliases=(str(row["stable_key"]),),
                 required=bool(row["is_required"]),
                 use_for_rci=bool(row["use_for_rci"]),
+                response_type=str(row.get("response_type") or "likert_5"),
+                rating_max=int(row.get("rating_max") or 5),
             )
-        )
+        sections.setdefault(section_key, []).append(question)
+        titles[section_key] = str(row.get("section_title") or {
+            "teacher_performance": "Teacher Performance",
+            "student_experience": "Student Experience",
+            "student_self_evaluation": "Student Self-Evaluation",
+            "qualitative_feedback": "Qualitative Feedback",
+        }.get(section_key, section_key.replace("_", " ").title()))
+        section_positions[section_key] = int(row.get("section_position") or 1)
+        if section_key in grouped:
+            grouped[section_key].append(question)
 
     missing_sections = [key for key, items in grouped.items() if not items]
-    if missing_sections:
+    if target_type == "subject_teacher" and not rows and missing_sections:
         raise PortalDataError(
             "The active questionnaire is missing sections: " + ", ".join(missing_sections)
         )
 
+    form_sections = tuple(
+        (titles[key], tuple(items), "comments" if items[0].response_type == "text" else "rating")
+        for key, items in sorted(sections.items(), key=lambda pair: (section_positions[pair[0]], pair[0]))
+    )
+    labels = tuple(sorted((int(k), str(v)) for k, v in (rating_labels or {}).items()))
+    if not labels:
+        labels = ((1, "Strongly Disagree"), (2, "Disagree"), (3, "Neutral"), (4, "Agree"), (5, "Strongly Agree"))
+
     return QuestionBlock(
         id=f"{school_level.lower()}-db-{question_bank_id}",
-        label=f"{school_level} questionnaire",
+        label=label or f"{school_level} questionnaire",
         faculty_items=tuple(grouped["teacher_performance"]),
         self_eval_items=tuple(
             grouped["student_experience"] + grouped["student_self_evaluation"]
         ),
         open_ended_items=tuple(grouped["qualitative_feedback"]),
+        target_type=target_type,
+        form_sections=form_sections,
+        rating_labels=labels,
     )
 
 
@@ -513,6 +540,8 @@ def response_payload(
             if item.required:
                 raise PortalSubmissionError("Every required rating must be completed before submission.")
             continue
+        if not 1 <= int(value) <= item.rating_max:
+            raise PortalSubmissionError("A rating is outside the response scale for this questionnaire.")
         payload.append(
             {
                 "question_item_id": _database_question_id(item.id),
@@ -520,7 +549,10 @@ def response_payload(
                 "text_value": None,
             }
         )
-    for item in question_block.open_ended_items:
+    text_items = (
+        item for item in question_block.all_items if item.response_type == "text"
+    )
+    for item in text_items:
         key = f"comment_{assignment_id}_{item.id}"
         value = str(comments.get(key, "")).strip()
         if not value:
@@ -553,6 +585,32 @@ def submit_evaluation(
                 "p_client_version": client_version,
             },
         ).execute()
+    except Exception as exc:
+        raise PortalSubmissionError(
+            "The evaluation could not be accepted. It may already be submitted or the period may be closed."
+        ) from exc
+    data = result.data
+    if isinstance(data, list):
+        data = data[0] if data else None
+    if data is None:
+        raise PortalSubmissionError("The database did not return a submission identifier.")
+    return int(data)
+
+
+def submit_target_evaluation(
+    client: Client,
+    evaluation_target_id: str,
+    responses: Sequence[Mapping[str, Any]],
+    *,
+    client_version: str,
+) -> int:
+    """Submit one target-specific form through the atomic roster-authorized RPC."""
+    try:
+        result = client.rpc("submit_target_evaluation", {
+            "p_evaluation_target_id": int(evaluation_target_id),
+            "p_responses": list(responses),
+            "p_client_version": client_version,
+        }).execute()
     except Exception as exc:
         raise PortalSubmissionError(
             "The evaluation could not be accepted. It may already be submitted or the period may be closed."

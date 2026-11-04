@@ -59,7 +59,7 @@ class StudentPortalTest(unittest.TestCase):
         self.assertNotIn("Faculty Evaluation", source)
         self.assertIn("Teacher Performance Evaluation", source)
         self.assertIn("Data Privacy Act of 2012", source)
-        self.assertIn("First Quarter of School Year 2026-2027", source)
+        self.assertIn("Second Quarter of School Year 2026-2027", source)
         self.assertIn("edtech@feuhighschool.edu.ph", source)
         self.assertNotIn("Confidential evaluation access", source)
         self.assertNotIn("Welcome back", source)

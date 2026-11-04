@@ -13,6 +13,109 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 - Do not include passwords, API keys, student rosters, response data, or other
   private information.
 
+## 2026-11-03
+
+### Synchronized current Supabase naming and pilot guidance
+
+- Updated the current rollout status to record that the questionnaire catalog
+  and target-aware migrations were applied on 2026-11-03. Clarified that no Q2
+  period, full roster, or pilot links have been imported and that the matching
+  target-aware Streamlit changes remain local.
+- Standardized the period example as
+  `PILOT-SY2026-2027-Q2-FINALS-01` and the future roster-batch pattern as
+  `SY2026-2027-Q2-FINALS-PILOT-01`. Clarified that `Q2` is the evaluation term
+  and `FINALS` is the schedule version.
+- Documented lowercase `snake_case` schema object names, stable domain tables,
+  questionnaire-code/version conventions, and migration filename pattern.
+- Replaced the obsolete Q1 pilot provisioning steps with the current guarded
+  import sequence for 45 existing synthetic accounts. The import remains
+  prepared locally and unrun; no application or database behavior changed.
+- Preserved dated changelog entries and the explicitly archived internal guide
+  as historical records. Verification: stale-status/name search and
+  `git diff --check` passed. No Supabase or GitHub operation was performed.
+
+## 2026-10-23
+
+### Split finalized questionnaire catalog from target activation — 16:48 Asia/Manila
+
+- Recorded the user's confirmation that the subject-teacher and Be Brave
+  homeroom questionnaires are finalized for this rollout.
+- Split the local SQL into `202610230001_questionnaire_catalog.sql`, which adds
+  six versioned JHS/SHS instrument banks, and
+  `202610230002_multi_target_instruments.sql`, which adds target routing and
+  submission tables after roster approval.
+- The catalog migration does not configure a period or student assignments;
+  legacy pilot accounts therefore cannot see these banks from that migration
+  alone. Reusing those accounts requires the target-aware app, a mapped open
+  period, and valid four-target assignments for the existing student profiles.
+- Both migrations remain local and unapplied. Verification: 78 unit tests,
+  Python compilation, and Git whitespace checks passed. No live SQL lint,
+  RLS/account-visibility test, or hosted write was performed.
+
+### Corrected homepage evaluation-period progress count
+
+- Progress now counts submissions only when their target ID is among the
+  student's current assigned evaluations. Same-period stale or unassigned
+  submissions no longer inflate the percentage or completed count.
+- The denominator remains the number of assigned targets. The portal data
+  loader validates the expected two subject teachers, one adviser, and one
+  homeroom program, so the normal total is four and each completed target is
+  25%.
+- Verification: Python compilation and Git whitespace check passed. A focused
+  calculation check confirmed 2 of 4 assigned targets displays 50% and excludes
+  a stale same-period target. No hosted database changes.
+
+### Restored required typed qualitative feedback
+
+- Superseded the optional/radio-button feedback behavior described in the
+  earlier same-day entry. The original text-entry layout is restored, and every
+  qualitative prompt requires typed text. Students type **Not applicable** or
+  **No other comments** when those responses fit.
+- Supabase receives these phrases unchanged as `text_value`, with no rating and
+  no `is_not_applicable` classification. The RPC now requires all instrument
+  items marked required, including qualitative prompts.
+- Verification: Python compilation, focused response-payload check for all
+  three instruments, SQL seed inspection, and Git whitespace check passed. The
+  migration remains local and unapplied; no live Supabase test was run.
+
+### Added target-based instruments and optional qualitative feedback
+
+- Added separate subject-teacher, homeroom-adviser, and homeroom-program forms
+  to the local student portal, preserving distinct 5-point and 4-point scales.
+- Kept notes in the qualitative section rather than beside quantitative items.
+  Qualitative prompts are optional and support comment, **Not applicable**,
+  **No other comments**, or blank responses.
+- Added a local-only target-aware Supabase migration proposal with per-target
+  submission routing and seeded JHS/SHS instrument versions. Fixed text-response
+  collection for the new section keys and limited the N/A database marker to
+  **Not applicable**.
+- No period mapping, roster, account, schema, response, or GitHub repository was
+  changed remotely. Deployment remains blocked on roster and questionnaire
+  approval and live RLS/RPC acceptance checks.
+- Verification for this revision: Python compilation and Git whitespace check
+  passed. No app-server/browser run, database migration, or live RLS/RPC test was
+  performed. Commit: pending.
+
+### Prepared schedule-based Finals roster and replacement import workflow
+
+- Added offline extraction from current student and teacher timetables, selecting
+  SOCSCI Finals explicitly and keeping official sections distinct from approved
+  teaching-group exceptions. The obsolete UCSP reconciliation workbook is not
+  an input to the replacement workflow.
+- Added Unicode-aware teacher identity matching, source-cell reconciliation,
+  deterministic selection of two distinct non-adviser subject teachers, and
+  universal adviser/program review targets. Unresolved source findings remain
+  visible; candidate allocations are not represented as production-approved.
+- Added a reviewed flat-XLSX validator, checksum-bound private bundle format,
+  draft-only v2 staging uploader, and compact service-role-only staging SQL
+  proposal. No new schema, accounts, roster or evaluation period was deployed.
+- Added read-only aggregate health SQL and documented storage retention and
+  inactivity recovery. No hosted data was deleted or modified.
+- Preserved the existing pilot scorer and student portal pending the separate
+  target-aware operational migration and official instruments.
+- Verification: 73 unit tests, Python compilation, command-help smoke checks,
+  workbook render checks and Git whitespace checks passed. Commit: pending.
+
 ## 2026-09-18
 
 ### Reconciled local roster bundles with hosted staging state
@@ -521,3 +624,8 @@ FEU High School Teacher Performance Evaluation Platform. Times use Asia/Manila (
 - Added the initial methodology, tests, public-repository sanitation rules,
   README, and master handoff summary.
 - Commit: `b5549ad` (`Initial Streamlit evaluation prototype`).
+
+### 2026-10-23 — Assignment-specific roster priority
+- Retain regular and overload teaching in the primary roster; keep daily/long-term substitutions secondary, with conflicting workbook tags held for review.
+- Preserve explicit user corrections and assignment evidence provenance; distinguish teacher load counts from allocated evaluations.
+- Enforce the same rule in reviewed workbook preparation and add synthetic regression coverage.

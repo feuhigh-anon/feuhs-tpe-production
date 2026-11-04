@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Tuple
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,8 @@ class QuestionItem:
     aliases: Tuple[str, ...] = ()
     required: bool = True
     use_for_rci: bool = True
+    response_type: str = "likert_5"
+    rating_max: int = 5
 
     @property
     def match_terms(self) -> Tuple[str, ...]:
@@ -32,6 +35,12 @@ class QuestionBlock:
     faculty_items: Tuple[QuestionItem, ...]
     self_eval_items: Tuple[QuestionItem, ...]
     open_ended_items: Tuple[QuestionItem, ...]
+    target_type: str = "subject_teacher"
+    form_sections: Tuple[Tuple[str, Tuple[QuestionItem, ...], str], ...] = ()
+    rating_labels: Tuple[Tuple[int, str], ...] = (
+        (1, "Strongly Disagree"), (2, "Disagree"), (3, "Neutral"),
+        (4, "Agree"), (5, "Strongly Agree"),
+    )
     teacher_aliases: Tuple[str, ...] = (
         "Teacher",
         "Teacher Name",
@@ -54,10 +63,14 @@ class QuestionBlock:
 
     @property
     def all_items(self) -> Tuple[QuestionItem, ...]:
+        if self.form_sections:
+            return tuple(item for _, items, _ in self.form_sections for item in items)
         return self.faculty_items + self.self_eval_items + self.open_ended_items
 
     @property
     def quantitative_items(self) -> Tuple[QuestionItem, ...]:
+        if self.form_sections:
+            return tuple(item for _, items, kind in self.form_sections if kind == "rating" for item in items)
         return self.faculty_items + self.self_eval_items
 
     @property

@@ -1,135 +1,124 @@
 # Synthetic Pilot Test Workflow
 
-This workflow supports technical testing before the final production question
-set is approved. It is not an official student pilot and must use synthetic
-student identities and credentials.
+This workflow supports technical testing with synthetic student identities and
+credentials. It is not an official student pilot. The subject-teacher,
+homeroom-adviser, and homeroom-program questionnaires are finalized. The
+questionnaire catalog and target-aware Supabase schema migrations have been
+applied; Q2 pilot assignments and the matching app deployment remain pending.
 
 ## Purpose
 
-The current published JHS and SHS question banks may be used for technical
-testing. A later finalized question set will be introduced as a new immutable
-question-bank version and linked to a separate evaluation period. Testing now
-does not commit the project to the current questions for production.
+The existing published JHS and SHS question banks may still be used with the
+legacy pilot workflow. The new questionnaires are in a separate catalog
+migration as immutable versions; the catalog alone does not link them to a
+period or make them visible to existing pilot accounts. Technical testing of
+the old forms does not automatically test the new target-aware forms.
 
 ## Current Boundary
 
-- Final roster batch `1` remains in `roster_stage_*`.
-- The batch must not be activated until the production question banks and
-  student Auth accounts are ready.
+- The 2,661-student Q2 master-list candidate remains local. Do not treat an
+  older staging batch as the current Q2 roster or activate it as such.
 - Alpha and pilot records must use separate period codes, such as
   `ALPHA-2026-01` and `PILOT-2026-Q1`.
+- The current evaluation cycle is Second Quarter SY 2026-2027. The older pilot
+  period is separate and must not be treated as the Q2 production period.
 - Synthetic students may use real school-year teachers, subjects, and sections,
   but must not use real student names, numbers, or email addresses.
 
-## Test Sequence
+## Q2 Target-Aware Pilot Plan (2026-11-03)
 
-1. Confirm the staging batch and roster counts with:
+The refreshed candidate is `outputs/pilot_q2_target_import_preview_r02/`. It
+reuses the existing 45 synthetic accounts (15 JHS, 15 Grade 11, 15 Grade 12)
+and assigns four Q2 targets each: two subject teachers, one adviser, and one
+Be Brave program. The preview contains 180 links and uses the current
+2,661-student Q2 bundle. It does not include real student names, numbers, or
+emails.
 
-   ```bash
-   .venv/bin/python scripts/audit_supabase_roster.py \
-     --url https://YOUR_PROJECT_REF.supabase.co \
-     --batch-id 1
-   ```
+The old account plan has a synthetic account labeled `11GS02`, but the finalized
+Q2 roster has no students or adviser under that code. Its seven `11GS01`
+students all use `11ME02` as their shared teaching and homeroom section. The
+candidate therefore retains `11GS01` as the synthetic student's official
+section and assigns the four targets under `11ME02`.
 
-2. Create or use a draft pilot period and associate the current published JHS
-   and SHS question banks with it.
+Each synthetic account's subject targets mirror an actual student allocation
+in that same official and teaching section. The preview is offline-only: it
+creates no Auth users and imports no target rows. The earlier
+`outputs/pilot_q2_target_import_preview/` is superseded and must not be used.
 
-3. Prepare 45 synthetic student accounts: 15 JHS, 15 Grade 11, and 15 Grade
-   12. Scatter them across the available sections and use actual staged
-   teacher-subject assignments for their temporary mappings. The offline plan
-   can be generated with:
+The prepared target-aware period code is
+`PILOT-SY2026-2027-Q2-FINALS-01`. Keep it in draft after import. Use a close
+time of `2026-12-31 23:59:59` Asia/Manila, matching the previously requested
+production availability date; open it only when the matching app is deployed.
+No target import or period creation has occurred yet. The SQL package is
+`outputs/pilot_q2_target_import_preview_r02/PILOT_IMPORT.sql`; it has not been
+run.
 
-   ```bash
-   python scripts/prepare_pilot_cohort.py \
-     --bundle exports/roster_import_SY2026_Q1_pilot \
-     --output-dir exports/pilot_cohort_plan
-   ```
+## Current Q2 Pilot Sequence
 
-   This command creates no users and changes no database rows. It excludes the
-   four shared-UCSP section-subjects under the current approved policy.
+1. Review the consolidated summary in
+   `outputs/pilot_q2_target_import_preview_r02/PREUPLOAD_AND_PILOT_REVIEW.md`
+   and the instructions in `PILOT_IMPORT_README.md`. The current preview
+   assigns four targets to each of 45 existing synthetic accounts (15 each
+   JHS, Grade 11, Grade 12).
 
-   Provision the approved plan only after reviewing its CSV:
+2. Confirm the current Q2 master entities required by the pilot import are in
+   Supabase: active official and teaching sections, teachers, subjects, the
+   Be Brave program, and all six published question banks. The SQL checks these
+   prerequisites and stops if any are missing. It does not import the full
+   2,661-student roster.
 
-   ```bash
-   .venv/bin/python scripts/provision_roster_pilot.py \
-     --url https://YOUR_PROJECT_REF.supabase.co \
-     --plan exports/pilot_cohort_plan/pilot_cohort_plan_20260826_121655.csv \
-     --bundle exports/roster_import_SY2026_Q1_pilot
-   ```
+3. Deploy the target-aware Streamlit changes before students test. The import
+   leaves its period in `draft`; opening the period is a separate action after
+   deployment and acceptance checks.
 
-   This creates 45 reserved `example.invalid` accounts, opens only the pilot
-   period, and leaves the full roster staging batch untouched. The command
-   writes an owner-only credentials CSV under `exports/`.
+4. When prerequisites and the app are ready, run the complete
+   `PILOT_IMPORT.sql` in SQL Editor for the intended Supabase project. It reuses
+   existing Auth accounts and student profiles; it does not create or reset
+   accounts. It updates only those synthetic students' official section
+   assignments and inserts their 180 Q2 links. It also maps the six banks and
+   keeps period `PILOT-SY2026-2027-Q2-FINALS-01` in draft.
 
-4. Run the Streamlit app with those synthetic credentials and verify:
+5. Confirm the SQL result reports 45 accounts and 180 active links: 90 subject,
+   45 adviser, and 45 program. If a guard reports a missing or inconsistent
+   reference, resolve it before retrying the complete script. Do not open the
+   period through the import script.
 
-   - login and logout;
-   - correct JHS/SHS instrument selection;
-   - section and grade placement;
-   - only assigned subjects and teachers are visible;
-   - no shared-UCSP student mappings are exposed;
-   - required Likert and qualitative responses are enforced;
-   - review and confirmation display the selected responses;
-   - duplicate submission is rejected;
-   - another synthetic student cannot read the first student's roster or
-     responses;
-   - administrator export can read responses only with the service key.
+6. After deployment, verify login, the four-target display, the correct JHS/SHS
+   instrument, required ratings and typed qualitative responses, progress,
+   duplicate-submission prevention, and cross-account access restrictions.
+   Keep the period in draft until those checks pass and opening the pilot is
+   intentionally authorized.
 
-   If the deployed app reports only “Sign-in failed,” isolate authentication
-   from roster loading with this read-only diagnostic:
+The older `prepare_pilot_cohort.py`, `provision_roster_pilot.py`, and related
+credential/reset/cleanup commands describe the superseded Q1 workflow. Do not
+use them for this Q2 pilot: the current plan reuses existing accounts and
+must not create accounts or automatically open a period.
 
-   ```bash
-   .venv/bin/python scripts/check_pilot_login.py \
-     --url https://YOUR_PROJECT_REF.supabase.co \
-     --email pilot.jhs.01@example.invalid
-   ```
+## Target-Aware Questionnaire Visibility
 
-   Use the same publishable key configured for the deployed app. Never use a
-   secret key with this command.
+The new question-bank catalog is in
+`supabase/migrations/202610230001_questionnaire_catalog.sql`; the operational
+tables and routing are in
+`supabase/migrations/202610230002_multi_target_instruments.sql`. The user
+confirmed both migrations were applied and supplied SQL Editor results showing
+the question banks and RLS-enabled target tables. The older pilot accounts use
+`student_assignments`; they still need explicit links in
+`student_evaluation_targets` to see target-based forms.
 
-   To reconcile a missing login against the hosted project, run the read-only
-   account audit:
+The target-aware app implementation is present locally but is not part of the
+last production commit. The two target-aware schema migrations have been
+applied. Before testing, deploy the matching app and run the prepared import
+for a separate Q2 pilot period. Do not reuse the older `PILOT-2026-Q1` period.
 
-   ```bash
-   .venv/bin/python scripts/audit_pilot_accounts.py \
-     --url https://YOUR_PROJECT_REF.supabase.co
-   ```
-
-   If Auth rejects a known pilot credential, rotate only that synthetic
-   password with the administrator utility, then rerun the diagnostic:
-
-   ```bash
-   .venv/bin/python scripts/reset_pilot_password.py \
-     --url https://YOUR_PROJECT_REF.supabase.co \
-     --credentials exports/pilot_credentials_20260826_123843.csv \
-     --email pilot.jhs.01@example.invalid
-   ```
-
-5. Record the result, period code, question-bank IDs, synthetic credential file,
-   and cleanup status locally. Do not commit credentials or response exports.
-
-6. Delete the synthetic pilot users, temporary assignments, submissions, and
-   credentials after testing, unless a documented test record must be retained.
-
-   Cleanup is explicit and safety-checked:
-
-   ```bash
-   .venv/bin/python scripts/cleanup_roster_pilot.py \
-     --url https://YOUR_PROJECT_REF.supabase.co \
-     --credentials exports/pilot_credentials_YYYYMMDD_HHMMSS.csv
-   ```
-
-## Current Question Bank Limitation
-
-The current question banks are appropriate for interface, authorization, and
-submission testing. They are not the final production instrument while
-management review is pending. When the questions arrive:
-
-1. add a new versioned question-bank migration;
-2. publish and verify the JHS and SHS question items;
-3. link those banks to the official evaluation period;
-4. rerun the end-to-end checks; and
-5. activate the approved roster only after all checks pass.
+The local-only Q2 pilot import package is in
+`outputs/pilot_q2_target_import_preview_r02/`. Review its
+`PILOT_IMPORT_README.md` before any import. `PILOT_IMPORT.sql` targets only the
+45 existing synthetic accounts and their 180 Q2 links. It validates that the
+referenced accounts, current sections, teachers, subjects, program, and six
+published questionnaire banks already exist; it does not create accounts or
+upload the 2,661-student master roster. It also aligns those synthetic accounts
+to current official sections, leaves the period in draft, and refuses to
+replace links if submissions already exist. It has not been run.
 
 ## Table Export
 

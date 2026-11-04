@@ -22,10 +22,26 @@ submission backend:
 | `question_banks`, `question_items` | Versioned evaluation instruments |
 | `evaluation_submissions`, `evaluation_responses` | Submitted evaluation records and answers |
 | `submission_audit_events` | Submission and administrator audit events |
+| `homeroom_programs` | Homeroom-program catalog by school level |
+| `evaluation_targets`, `student_evaluation_targets` | Period-scoped subject/adviser/program targets and each student's authorized targets |
+| `evaluation_target_instruments` | Period, school-level, target-type, and question-bank mapping |
+| `evaluation_target_submissions`, `evaluation_target_responses` | Target-specific submissions and answers |
 
 These are production tables even when they temporarily contain only synthetic
 alpha or pilot records. Test data is separated by evaluation period, not by
 creating alternate table names.
+
+### Target-aware questionnaire tables (applied)
+
+The finalized subject-teacher, homeroom-adviser, and homeroom-program
+questionnaires are defined and seeded by
+`202610230001_questionnaire_catalog.sql` as six versioned JHS/SHS banks. The
+catalog migration adds question content but no period mappings or student
+assignments. The applied `202610230002_multi_target_instruments.sql` migration
+adds target-based assignments, routing, and submissions. Both migrations were
+applied to the hosted project on 2026-11-03, as confirmed by the user. Their
+deployment did not import the Q2 roster, create a Q2 period, map banks to that
+period, or link pilot accounts. The target-aware app changes remain local.
 
 ### Roster staging tables
 
@@ -46,7 +62,13 @@ active in the student portal:
 Staging rows are never read by students. Validation and activation are
 service-role-only operations.
 
-## Lifecycle
+## Legacy roster-stage lifecycle
+
+The following CSV batch sequence describes the earlier `roster_stage_*`
+workflow. It is not the import process for the current Q2 target-aware roster;
+the legacy uploader cannot load its secondary-adviser allocations. Keep the
+design for maintenance of existing staged batches, and follow
+`docs/PILOT_TEST_WORKFLOW.md` for the separate synthetic pilot process.
 
 1. Build and validate the private workbook locally.
 2. Prepare owner-only CSV files under ignored `exports/`.
@@ -68,12 +90,18 @@ Synthetic students and credentials must use synthetic identifiers and must not
 be committed to Git. Pilot rows should be deleted after testing when their
 audit value is no longer required.
 
-## Current State
+## Current State (2026-11-03)
 
-Batch `1` is the staged final roster import for the pilot period. The complete
-roster is in the `roster_stage_*` tables. The application-facing tables still
-contain earlier synthetic alpha data and have not been activated with the final
-roster.
+The Q2 master-list candidate has 2,661 unique students and remains local. Do not
+assume an older `roster_import_batches` record or staging batch is the current
+Q2 roster. The legacy uploader does not support the current target-aware
+allocation format.
+
+The synthetic pilot preview and guarded SQL are under the ignored
+`outputs/pilot_q2_target_import_preview_r02/` directory. They cover 45 existing
+synthetic accounts and 180 target links. The SQL has not been run; no Q2 pilot
+period or target links have been created. The script keeps the period in draft
+and does not create Auth users or import the 2,661-student roster.
 
 The read-only audit command is:
 
@@ -88,11 +116,34 @@ export names, email addresses, student numbers, or response contents.
 
 ## Naming Rules for Future Changes
 
-- Keep application-facing tables domain-oriented and unprefixed.
+- Use lowercase `snake_case` for table, column, index, policy, and function
+  names. Keep application-facing tables domain-oriented and unprefixed; retain
+  established plural table names such as `teachers`, `subjects`, and
+  `evaluation_periods`.
+- Name foreign-key columns `<referenced_entity>_id`; use explicit link-table
+  names such as `student_evaluation_targets` for many-to-many relationships.
+- Use checked lowercase `snake_case` values for target types:
+  `subject_teacher`, `homeroom_adviser`, and `homeroom_program`.
+- Name unique indexes with a descriptive purpose and `_uq` suffix, ordinary
+  indexes with `_idx`, and RLS policies with the table plus action/scope. Keep
+  database function names verb-oriented, for example
+  `submit_target_evaluation`.
 - Use `roster_stage_` for imported roster rows that are not active.
 - Use `roster_import_` for import metadata and validation findings.
 - Separate alpha, pilot, and production test data with evaluation-period IDs and
   explicit period codes, not separate table names.
+- Keep questionnaire-bank codes lowercase and hyphenated; store the integer
+  version separately. For example, `faculty-evaluation-jhs` version `2` and
+  `homeroom-adviser-evaluation-jhs` version `1`.
+- Use uppercase hyphenated codes for evaluation periods. The current pilot code
+  is `PILOT-SY2026-2027-Q2-FINALS-01`: prefix, school year, quarter, schedule
+  version, sequence. `Q2` is the term; `FINALS` is the schedule version.
+- For a future roster batch, use
+  `SY2026-2027-Q2-FINALS-PILOT-01` (school year, quarter, schedule version,
+  purpose, sequence). No Q2 full-roster batch with this code has been uploaded.
+- Name new migration files
+  `YYYYMMDDNNNN_snake_case.sql` (date, four-digit sequence, description); never
+  edit an already-applied migration to change the hosted schema.
 - Do not rename tables directly in the Supabase Table Editor. If a rename ever
   becomes necessary, add a versioned migration and update RLS policies,
   database functions, Streamlit adapters, scripts, and tests together.
