@@ -383,6 +383,7 @@ def inject_styles(theme: str) -> None:
             margin: .65rem 0 .85rem; padding: 0; list-style: none;
             border: 1px solid var(--border); border-radius: 5px; overflow: hidden;
         }}
+        .agreement-scale-four {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
         .agreement-scale li {{
             min-width: 0; padding: .55rem .25rem; text-align: center;
             border-right: 1px solid var(--border); background: var(--surface);
@@ -737,7 +738,8 @@ def render_login(settings: SupabaseSettings) -> None:
             """
             <section class="login-guidance" aria-labelledby="evaluation-guidance-title">
               <h2 id="evaluation-guidance-title">Evaluation guidance</h2>
-              <p>Subject-teacher and adviser ratings use a five-point agreement scale. The homeroom-program form uses a four-point agreement scale with no neutral choice.</p>
+              <p>Complete the four forms assigned to you: two subject teachers, your Homeroom Adviser, and the Be Brave Homeroom Program. Answer each form about the teacher or program named on it. The subject-teacher form also includes a student self-evaluation section; answer that part about your own participation.</p>
+              <p><strong>Subject-teacher and Homeroom Adviser ratings use a five-point scale:</strong></p>
               <ol class="agreement-scale" aria-label="Five-point agreement scale">
                 <li><b>1</b>Strongly Disagree</li>
                 <li><b>2</b>Disagree</li>
@@ -745,8 +747,15 @@ def render_login(settings: SupabaseSettings) -> None:
                 <li><b>4</b>Agree</li>
                 <li><b>5</b>Strongly Agree</li>
               </ol>
-              <p>Written feedback is required. Type a response for every prompt. If you have nothing to add, type <strong>Not applicable</strong> or <strong>No other comments</strong>.</p>
-              <p>Complete all four evaluations assigned to you. After each submission, keep only the confirmation screen if your Homeroom Adviser requires evidence of completion. Do not share your evaluation answers.</p>
+              <p><strong>The Be Brave Homeroom Program uses a four-point scale, with no neutral choice:</strong></p>
+              <ol class="agreement-scale agreement-scale-four" aria-label="Four-point agreement scale">
+                <li><b>1</b>Strongly Disagree</li>
+                <li><b>2</b>Disagree</li>
+                <li><b>3</b>Agree</li>
+                <li><b>4</b>Strongly Agree</li>
+              </ol>
+              <p>Written feedback is required. Type a response for every qualitative prompt. If you have nothing to add, type <strong>Not applicable</strong> or <strong>No other comments</strong>. These responses are recorded as written feedback, not as rating scores.</p>
+              <p>Base your answers on your Second Quarter experience. Submit each assigned form once, and keep your evaluation answers private.</p>
               <p>Thank you for contributing honest and thoughtful feedback toward a better learning environment.</p>
               <div class="privacy-note"><strong>Privacy notice:</strong> Personal data collected through this evaluation will be processed in accordance with Republic Act No. 10173, the Data Privacy Act of 2012, and applicable school privacy policies for legitimate evaluation, administration, and educational-improvement purposes.</div>
             </section>
