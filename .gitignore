@@ -36,3 +36,22 @@ docs/INTERNAL_PROJECT_GUIDE.md
 .env
 .env.*
 !.env.example
+
+# Keep the public production repository focused on the student app runtime.
+# These files remain in the local worktree for development and handoff but are
+# not part of the hosted-app source snapshot.
+/.devcontainer/
+/.github/
+/.workbench/
+/AGENTS.md
+/CHANGELOG.md
+/HANDOFF_SUMMARY.md
+/Teacher_Performance_Evaluation_by_Students_10Sept2026.docx
+/app.py
+/config/
+/docs/
+/new_eval.code-workspace
+/portal_app/
+/scripts/
+/tests/
+/supabase/proposals/
