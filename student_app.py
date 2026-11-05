@@ -687,7 +687,7 @@ def render_login(settings: SupabaseSettings) -> None:
               <div class="login-hero-copy">
                 <p>Your feedback helps improve teaching and homeroom learning at FEU High School. Please complete the evaluations assigned to your student account.</p>
                 <p>You will complete four evaluations: two subject teachers, your Homeroom Adviser, and the Be Brave Homeroom Program. Each form uses its own questions and rating scale.</p>
-                <p>For this cycle, base your responses on your experiences during the Second Quarter of School Year 2026-2027. The active evaluation period is shown after sign-in.</p>
+                <p>Take your time, respond honestly, and use your own experiences to guide each answer.</p>
               </div>
             </div>
             """,
@@ -755,7 +755,7 @@ def render_login(settings: SupabaseSettings) -> None:
                 <li><b>4</b>Strongly Agree</li>
               </ol>
               <p>Written feedback is required. Type a response for every qualitative prompt. If you have nothing to add, type <strong>Not applicable</strong> or <strong>No other comments</strong>. These responses are recorded as written feedback, not as rating scores.</p>
-              <p>Base your answers on your Second Quarter experience. Submit each assigned form once, and keep your evaluation answers private.</p>
+              <p>Use your own experiences to guide each answer. Submit each assigned form once, and keep your evaluation answers private.</p>
               <p>Thank you for contributing honest and thoughtful feedback toward a better learning environment.</p>
               <div class="privacy-note"><strong>Privacy notice:</strong> Personal data collected through this evaluation will be processed in accordance with Republic Act No. 10173, the Data Privacy Act of 2012, and applicable school privacy policies for legitimate evaluation, administration, and educational-improvement purposes.</div>
             </section>
