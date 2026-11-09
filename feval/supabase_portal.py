@@ -28,6 +28,16 @@ class PortalSubmissionError(RuntimeError):
     """Raised when the database rejects an evaluation submission."""
 
 
+def is_meaningful_text_response(value: object) -> bool:
+    """Require at least one letter or number in a qualitative response.
+
+    This rejects empty/space-only answers and punctuation-only placeholders such
+    as a single dot, while allowing punctuation within an actual response.
+    """
+
+    return any(character.isalnum() for character in str(value or ""))
+
+
 @dataclass(frozen=True)
 class SupabaseSettings:
     url: str
@@ -555,9 +565,13 @@ def response_payload(
     for item in text_items:
         key = f"comment_{assignment_id}_{item.id}"
         value = str(comments.get(key, "")).strip()
-        if not value:
+        if not is_meaningful_text_response(value):
             if item.required:
-                raise PortalSubmissionError("Every required qualitative response must be completed.")
+                raise PortalSubmissionError(
+                    "Each written-feedback prompt needs a comment or “Not applicable” / "
+                    "“No other comments.” Spaces or punctuation alone (such as a dot) "
+                    "do not count as a response."
+                )
             continue
         payload.append(
             {

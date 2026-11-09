@@ -33,6 +33,7 @@ from feval.supabase_portal import (
     PortalSnapshot,
     SupabaseSettings,
     load_portal_snapshot,
+    is_meaningful_text_response,
     response_payload,
     restore_session,
     sign_in_with_password,
@@ -754,7 +755,7 @@ def render_login(settings: SupabaseSettings) -> None:
                 <li><b>3</b>Agree</li>
                 <li><b>4</b>Strongly Agree</li>
               </ol>
-              <p>Written feedback is required. Type a response for every qualitative prompt. If you have nothing to add, type <strong>Not applicable</strong> or <strong>No other comments</strong>. These responses are recorded as written feedback, not as rating scores.</p>
+              <p>Written feedback is required. Type a response for every qualitative prompt. If you have nothing to add, type <strong>Not applicable</strong> or <strong>No other comments</strong>. A blank, spaces-only, or punctuation-only response (such as a dot) will not be accepted. These responses are recorded as written feedback, not as rating scores.</p>
               <p>Use your own experiences to guide each answer. Submit each assigned form once, and keep your evaluation answers private.</p>
               <p>Thank you for contributing honest and thoughtful feedback toward a better learning environment.</p>
               <div class="privacy-note"><strong>Privacy notice:</strong> Personal data collected through this evaluation will be processed in accordance with Republic Act No. 10173, the Data Privacy Act of 2012, and applicable school privacy policies for legitimate evaluation, administration, and educational-improvement purposes.</div>
@@ -1140,7 +1141,8 @@ def render_evaluation(assignment: TeacherAssignment | None, blocks) -> None:
         else:
             st.caption(
                 'Written feedback is required. Type a response for every prompt. '
-                'If you have nothing to add, type “Not applicable” or “No other comments.”'
+                'If you have nothing to add, type “Not applicable” or “No other comments.” '
+                'Blank, spaces-only, or punctuation-only answers (such as a dot) will not be accepted.'
             )
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
@@ -1188,12 +1190,16 @@ def render_evaluation(assignment: TeacherAssignment | None, blocks) -> None:
             missing = []
             for item in items:
                 widget_key = f"comment_{assignment.id}_{item.id}"
-                value = st.session_state.get(widget_key, "").strip()
-                if not value and item.required:
+                value = str(st.session_state.get(widget_key, "")).strip()
+                if not is_meaningful_text_response(value) and item.required:
                     missing.append(item.text)
                 comment_values[widget_key] = value
             if missing:
-                st.error(f"Please type a response for each of the {len(missing)} remaining qualitative prompts.")
+                st.error(
+                    f"{len(missing)} qualitative prompt(s) need a written response. "
+                    'Type a comment or “Not applicable” / “No other comments.” '
+                    'Spaces or punctuation alone (such as a dot) do not count.'
+                )
                 return
             st.session_state.comments.update(comment_values)
 
