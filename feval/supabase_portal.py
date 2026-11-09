@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from supabase import Client, create_client
 
@@ -107,10 +107,20 @@ def sign_in_with_password(
 def restore_session(
     settings: SupabaseSettings,
     session: AuthSession,
+    client: Optional[Client] = None,
 ) -> tuple[Client, AuthSession]:
-    client = new_client(settings)
+    existing_client = client is not None
+    client = client if client is not None else new_client(settings)
     try:
-        response = client.auth.set_session(session.access_token, session.refresh_token)
+        if existing_client:
+            # Keep the auth client's in-memory session across Streamlit reruns.
+            # Re-applying the same token pair with set_session() on every rerun
+            # can make concurrent refreshes compete over a rotating refresh token.
+            response = client.auth.get_session()
+        else:
+            # A new Streamlit session has no in-memory auth state, so hydrate it
+            # once from the last token pair retained in this browser session.
+            response = client.auth.set_session(session.access_token, session.refresh_token)
     except Exception as exc:
         raise PortalAuthenticationError("Your session has expired. Please sign in again.") from exc
     return client, _auth_session_from_response(response)
@@ -638,8 +648,8 @@ def submit_target_evaluation(
 
 
 def _auth_session_from_response(response: Any) -> AuthSession:
-    session = getattr(response, "session", None)
-    user = getattr(response, "user", None)
+    session = getattr(response, "session", None) or response
+    user = getattr(response, "user", None) or getattr(session, "user", None)
     if session is None or user is None or not getattr(user, "id", None):
         raise PortalAuthenticationError("Supabase did not return an authenticated session.")
     return AuthSession(

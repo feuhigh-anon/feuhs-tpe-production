@@ -168,7 +168,11 @@ def authenticated_portal_data(settings: SupabaseSettings):
     saved_session = st.session_state.get("supabase_session")
     if not isinstance(saved_session, AuthSession):
         return None
-    client, refreshed_session = restore_session(settings, saved_session)
+    client, refreshed_session = restore_session(
+        settings,
+        saved_session,
+        client=st.session_state.get("supabase_client"),
+    )
     st.session_state.supabase_session = refreshed_session
     st.session_state.supabase_client = client
     snapshot = st.session_state.get("supabase_snapshot")
